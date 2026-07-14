@@ -6,12 +6,12 @@ import Register from './pages/Register';
 
 function App() {
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="min-h-screen w-full bg-gray-50 flex flex-col">
             {/* Global Navigation */}
             <Navbar />
             
             {/* Dynamic Page Content */}
-            <main className="flex-grow">
+            <main className="flex-grow w-full">
                 <Routes>
                     <Route path="/" element={<Home />} />
                     <Route path="/login" element={<Login />} />
