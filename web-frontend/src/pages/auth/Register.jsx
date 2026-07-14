@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import useAuth from '../hooks/useAuth';
+import useAuth from '../../hooks/useAuth';
 
 const Register = () => {
   const [formData, setFormData] = useState({
@@ -54,7 +54,7 @@ const Register = () => {
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-red-50/80 via-orange-50/50 to-amber-50/80 p-4 sm:p-6 lg:p-8">
       {/* Responsive Container: Stacked on Mobile/Tablet, Split Grid on Large Desktop */}
       <div className="w-full max-w-md lg:max-w-5xl bg-white rounded-2xl sm:rounded-3xl shadow-xl lg:shadow-2xl border border-gray-100/80 overflow-hidden grid grid-cols-1 lg:grid-cols-12 transition-all duration-300">
-        
+
         {/* Left / Top Banner (Desktop Hero Perks & Branding) */}
         <div className="hidden lg:flex lg:col-span-5 bg-gradient-to-br from-red-600 via-red-700 to-orange-600 p-10 text-white flex-col justify-between relative overflow-hidden">
           {/* Decorative Background Circles */}
@@ -66,7 +66,7 @@ const Register = () => {
               <span className="text-3xl">🍕</span>
               <span className="text-2xl font-black tracking-tight">Pizza Store</span>
             </Link>
-            
+
             <h3 className="text-3xl font-extrabold leading-tight tracking-tight mb-4">
               Khám phá thế giới ẩm thực Pizza hảo hạng!
             </h3>

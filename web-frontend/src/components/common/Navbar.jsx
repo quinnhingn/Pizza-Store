@@ -23,17 +23,21 @@ const Navbar = () => {
         <div className="flex items-center gap-2 sm:gap-4">
           {isAuthenticated && user ? (
             <div className="flex items-center gap-2 sm:gap-4">
-              <div className="flex items-center gap-1.5 sm:gap-2 bg-red-800/60 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full border border-red-500/30 text-xs sm:text-sm">
+              <Link
+                to="/profile"
+                title="Quản lý tài khoản & Sổ địa chỉ"
+                className="flex items-center gap-1.5 sm:gap-2 bg-red-800/60 hover:bg-red-800/90 transition-all px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-full border border-red-500/30 text-xs sm:text-sm cursor-pointer shadow-sm hover:shadow"
+              >
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0"></span>
                 <span className="font-medium text-gray-100 truncate max-w-[120px] sm:max-w-none">
-                  Xin chào, <strong className="text-white">{user.full_name}</strong>
+                  Xin chào, <strong className="text-white underline decoration-white/50 underline-offset-2">{user.full_name}</strong>
                 </span>
                 {user.role === 'admin' && (
                   <span className="ml-1 px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-bold bg-yellow-400 text-gray-900 rounded-full shadow-sm flex-shrink-0">
                     Admin
                   </span>
                 )}
-              </div>
+              </Link>
 
               <button
                 onClick={handleLogout}
