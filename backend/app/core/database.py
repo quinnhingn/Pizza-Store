@@ -1,4 +1,5 @@
 import os
+import ssl
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
@@ -11,11 +12,15 @@ DATABASE_URL: str | None = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set.")
 
-# Initialize Async Engine for PostgreSQL
+# Create SSL context for Neon PostgreSQL
+ssl_context = ssl.create_default_context()
+
+# Initialize Async Engine for PostgreSQL (Neon)
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True, # Set to False in Production
-    future=True
+    echo=True,  # Set to False in Production
+    future=True,
+    connect_args={"ssl": ssl_context}
 )
 
 # Configure Async Session Local
