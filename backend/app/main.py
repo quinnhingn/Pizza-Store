@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import Dict
 
 # Import routers
-from app.api import auth
+from app.api import auth, users
 
 app = FastAPI(
     title="Pizza Store API",
@@ -21,6 +21,7 @@ app.add_middleware(
 
 # Register API Routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(users.router, prefix="/api/users", tags=["Users & Addresses"])
 
 @app.get("/api/ping", tags=["Health Check"])
 async def ping_server() -> Dict[str, str]:
