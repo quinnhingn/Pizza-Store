@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from app.core.deps import get_db, get_current_admin_user
 from app.models.user import User
-from app.models.product import Product, Ingredient, ProductIngredient
+from app.models.product import Product, Ingredient, ProductIngredient, ProductSize, ProductTopping
 from app.models.category import Category
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 
@@ -37,12 +37,39 @@ async def _sync_product_ingredients(db: AsyncSession, product_id: int, ingredien
         assoc = ProductIngredient(product_id=product_id, ingredient_id=ing.id)
         db.add(assoc)
 
+async def _sync_product_sizes(db: AsyncSession, product_id: int, sizes_list: list):
+    """Helper to sync product sizes."""
+    await db.execute(delete(ProductSize).where(ProductSize.product_id == product_id))
+    for sz in sizes_list:
+        assoc = ProductSize(
+            product_id=product_id,
+            size_name=sz.size_name.strip(),
+            price_multiplier=sz.price_multiplier,
+            extra_price=sz.extra_price
+        )
+        db.add(assoc)
+
+async def _sync_product_toppings(db: AsyncSession, product_id: int, toppings_list: list):
+    """Helper to sync product toppings."""
+    await db.execute(delete(ProductTopping).where(ProductTopping.product_id == product_id))
+    for tp in toppings_list:
+        assoc = ProductTopping(
+            product_id=product_id,
+            topping_name=tp.topping_name.strip(),
+            extra_price=tp.extra_price
+        )
+        db.add(assoc)
+
 async def _get_product_with_details(db: AsyncSession, product_id: int) -> Optional[Product]:
-    """Fetch product with eager loaded ingredient associations."""
+    """Fetch product with eager loaded ingredient, size, and topping associations."""
     db.expire_all()
     stmt = (
         select(Product)
-        .options(selectinload(Product.ingredient_associations).joinedload(ProductIngredient.ingredient))
+        .options(
+            selectinload(Product.ingredient_associations).joinedload(ProductIngredient.ingredient),
+            selectinload(Product.size_associations),
+            selectinload(Product.topping_associations)
+        )
         .where(Product.id == product_id)
     )
     res = await db.execute(stmt)
@@ -59,7 +86,11 @@ async def get_products(
     """Get list of products with optional filtering (Public endpoint)."""
     stmt = (
         select(Product)
-        .options(selectinload(Product.ingredient_associations).joinedload(ProductIngredient.ingredient))
+        .options(
+            selectinload(Product.ingredient_associations).joinedload(ProductIngredient.ingredient),
+            selectinload(Product.size_associations),
+            selectinload(Product.topping_associations)
+        )
     )
     if category_id is not None:
         stmt = stmt.where(Product.category_id == category_id)
@@ -93,13 +124,17 @@ async def create_product(
         if not res_cat.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Category ID does not exist")
 
-    product_data = payload.model_dump(exclude={"ingredients"})
+    product_data = payload.model_dump(exclude={"ingredients", "sizes", "toppings"})
     new_product = Product(**product_data)
     db.add(new_product)
     await db.flush()  # flush to get new_product.id
 
     if payload.ingredients:
         await _sync_product_ingredients(db, new_product.id, payload.ingredients)
+    if payload.sizes:
+        await _sync_product_sizes(db, new_product.id, payload.sizes)
+    if payload.toppings:
+        await _sync_product_toppings(db, new_product.id, payload.toppings)
 
     await db.commit()
     return await _get_product_with_details(db, new_product.id)
@@ -122,12 +157,16 @@ async def update_product(
         if not res_cat.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Category ID does not exist")
 
-    update_data = payload.model_dump(exclude_unset=True, exclude={"ingredients"})
+    update_data = payload.model_dump(exclude_unset=True, exclude={"ingredients", "sizes", "toppings"})
     for key, value in update_data.items():
         setattr(product, key, value)
 
     if payload.ingredients is not None:
         await _sync_product_ingredients(db, product.id, payload.ingredients)
+    if payload.sizes is not None:
+        await _sync_product_sizes(db, product.id, payload.sizes)
+    if payload.toppings is not None:
+        await _sync_product_toppings(db, product.id, payload.toppings)
 
     await db.commit()
     return await _get_product_with_details(db, product.id)

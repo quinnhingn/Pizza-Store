@@ -60,7 +60,16 @@ CREATE TABLE products (
 );
 
 -- ------------------------------------------------------------
--- 5. product_toppings
+-- 5. toppings (Master catalog for toppings)
+-- ------------------------------------------------------------
+CREATE TABLE toppings (
+    id                  SERIAL PRIMARY KEY,
+    name                VARCHAR(100) UNIQUE NOT NULL,
+    default_extra_price DECIMAL(10,2) DEFAULT 0
+);
+
+-- ------------------------------------------------------------
+-- 6. product_toppings
 -- ------------------------------------------------------------
 CREATE TABLE product_toppings (
     id              SERIAL PRIMARY KEY,
@@ -70,7 +79,17 @@ CREATE TABLE product_toppings (
 );
 
 -- ------------------------------------------------------------
--- 6. product_sizes
+-- 7. sizes (Master catalog for sizes)
+-- ------------------------------------------------------------
+CREATE TABLE sizes (
+    id                          SERIAL PRIMARY KEY,
+    name                        VARCHAR(50) UNIQUE NOT NULL,
+    default_price_multiplier    DECIMAL(3,2) DEFAULT 1.0,
+    default_extra_price         DECIMAL(10,2) DEFAULT 0
+);
+
+-- ------------------------------------------------------------
+-- 8. product_sizes
 -- ------------------------------------------------------------
 CREATE TABLE product_sizes (
     id                  SERIAL PRIMARY KEY,
@@ -81,7 +100,7 @@ CREATE TABLE product_sizes (
 );
 
 -- ------------------------------------------------------------
--- 7. ingredients
+-- 9. ingredients
 -- ------------------------------------------------------------
 CREATE TABLE ingredients (
     id              SERIAL PRIMARY KEY,

@@ -24,63 +24,37 @@ async def upload_image(
             detail="Chỉ hỗ trợ định dạng file ảnh (JPEG, PNG, WEBP, GIF)"
         )
 
-    cloudinary_error = None
-    if is_cloudinary_configured():
-        init_cloudinary()
-        try:
-            # Run synchronous Cloudinary upload in thread pool to avoid blocking async loop
-            result = await asyncio.to_thread(
-                cloudinary.uploader.upload,
-                file.file,
-                folder="pizza_store/products"
-            )
-            secure_url = result.get("secure_url")
-            public_id = result.get("public_id")
-            return {
-                "status": "success",
-                "data": {
-                    "url": secure_url,
-                    "public_id": public_id,
-                    "provider": "cloudinary"
-                },
-                "message": "Tải ảnh lên Cloudinary thành công"
-            }
-        except Exception as e:
-            # If Cloudinary fails (e.g., permission issue or network error), fallback to local storage
-            cloudinary_error = str(e)
-            # Reset file read pointer in case Cloudinary consumed bytes
-            await file.seek(0)
+    if not is_cloudinary_configured():
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Hệ thống chưa được cấu hình API Cloudinary (thiếu CLOUDINARY_CLOUD_NAME, API_KEY hoặc API_SECRET trong .env)"
+        )
 
-    # Local fallback storage when Cloudinary is not configured or fails
-    upload_dir = os.path.join("static", "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-
-    ext = file.filename.split(".")[-1] if file.filename and "." in file.filename else "png"
-    unique_filename = f"{uuid.uuid4().hex}.{ext}"
-    file_path = os.path.join(upload_dir, unique_filename)
-
+    init_cloudinary()
     try:
+        # Read file bytes cleanly in async context before passing to thread pool
         content = await file.read()
-        with open(file_path, "wb") as f:
-            f.write(content)
+        result = await asyncio.to_thread(
+            cloudinary.uploader.upload,
+            content,
+            folder="pizza_store/products"
+        )
+        secure_url = result.get("secure_url")
+        public_id = result.get("public_id")
+        if not secure_url:
+            raise ValueError("Cloudinary không trả về secure_url")
+
+        return {
+            "status": "success",
+            "data": {
+                "url": secure_url,
+                "public_id": public_id,
+                "provider": "cloudinary"
+            },
+            "message": "Tải ảnh lên Cloudinary thành công"
+        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Lỗi khi lưu file cục bộ: {str(e)}"
+            detail=f"Lỗi khi tải ảnh lên Cloudinary: {str(e)}"
         )
-
-    # Assuming default development server at http://localhost:8000
-    url = f"http://localhost:8000/static/uploads/{unique_filename}"
-    message = "Tải ảnh lên server cục bộ (Local Fallback) thành công"
-    if cloudinary_error:
-        message = f"Tải ảnh vào server cục bộ do Cloudinary gặp lỗi: {cloudinary_error}"
-
-    return {
-        "status": "success",
-        "data": {
-            "url": url,
-            "public_id": unique_filename,
-            "provider": "local"
-        },
-        "message": message
-    }
