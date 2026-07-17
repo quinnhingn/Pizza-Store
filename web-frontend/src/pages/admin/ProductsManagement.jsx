@@ -1,15 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import productsAPI from '../../api/productsAPI';
 import categoriesAPI from '../../api/categoriesAPI';
 import ProductModal from '../../components/admin/ProductModal';
 import ConfirmDeleteModal from '../../components/admin/ConfirmDeleteModal';
-import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, Filter } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, Image as ImageIcon, Filter, Maximize2, Layers, UtensilsCrossed, ChevronRight } from 'lucide-react';
 
 const ProductsManagement = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expandedRows, setExpandedRows] = useState(new Set());
+
+  const toggleRowExpand = (productId) => {
+    setExpandedRows(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -168,18 +181,20 @@ const ProductsManagement = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50/50">
+                <th className="py-3 px-4 w-10 text-center text-xs font-semibold text-gray-400">#</th>
                 <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Sản phẩm</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Danh mục</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Giá bán</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Nguyên liệu</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Trạng thái</th>
-                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider text-right">Thao tác</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Danh mục</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Giá bán</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Kích cỡ / Toppings</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider">Nguyên liệu chính</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Trạng thái</th>
+                <th className="py-3 px-6 text-xs font-semibold text-gray-600 uppercase tracking-wider text-right whitespace-nowrap">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 text-sm">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center text-gray-500">
+                  <td colSpan="8" className="py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center gap-3">
                       <div className="w-6 h-6 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
                       <span>Đang tải thực đơn...</span>
@@ -188,7 +203,7 @@ const ProductsManagement = () => {
                 </tr>
               ) : filteredProducts.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="py-12 text-center text-gray-500">
+                  <td colSpan="8" className="py-12 text-center text-gray-500">
                     <Package className="w-10 h-10 text-gray-300 mx-auto mb-2" strokeWidth={1.5} />
                     <span>Không tìm thấy sản phẩm nào phù hợp.</span>
                   </td>
@@ -196,85 +211,192 @@ const ProductsManagement = () => {
               ) : (
                 filteredProducts.map((prod) => {
                   const categoryName = categories.find((c) => c.id === prod.category_id)?.name || 'Khác';
+                  const isExpanded = expandedRows.has(prod.id);
                   return (
-                    <tr key={prod.id} className="hover:bg-gray-50/75 transition-colors">
-                      <td className="py-3.5 px-6">
-                        <div className="flex items-center gap-3">
-                          {prod.image_url ? (
-                            <img
-                              src={prod.image_url}
-                              alt={prod.name}
-                              className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0 bg-gray-50"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
-                              <ImageIcon className="w-5 h-5" strokeWidth={1.5} />
+                    <Fragment key={prod.id}>
+                      <tr className={`hover:bg-gray-50/75 transition-colors ${isExpanded ? 'bg-blue-50/30' : ''}`}>
+                        <td className="py-3.5 px-4 text-center">
+                          <button
+                            type="button"
+                            onClick={() => toggleRowExpand(prod.id)}
+                            className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer"
+                            title={isExpanded ? "Thu gọn chi tiết" : "Xem chi tiết cấu hình"}
+                          >
+                            <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90 text-blue-600' : ''}`} />
+                          </button>
+                        </td>
+                        <td className="py-3.5 px-6">
+                          <div className="flex items-center gap-3">
+                            {prod.image_url ? (
+                              <img
+                                src={prod.image_url}
+                                alt={prod.name}
+                                className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0 bg-gray-50 shadow-2xs"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center text-gray-400 flex-shrink-0">
+                                <ImageIcon className="w-5 h-5" strokeWidth={1.5} />
+                              </div>
+                            )}
+                            <div>
+                              <div className="font-semibold text-gray-900 text-sm">{prod.name}</div>
+                              <div className="text-[11px] text-gray-400 font-mono">ID: {prod.id}</div>
                             </div>
-                          )}
-                          <div>
-                            <div className="font-medium text-gray-900">{prod.name}</div>
-                            <div className="text-xs text-gray-400 font-mono">ID: {prod.id}</div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-6">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                          {categoryName}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-6 font-semibold text-gray-900">
-                        {formatCurrency(prod.price)}
-                      </td>
-                      <td className="py-3.5 px-6 max-w-xs">
-                        <div className="flex flex-wrap gap-1">
-                          {Array.isArray(prod.ingredients) && prod.ingredients.length > 0 ? (
-                            prod.ingredients.map((ing, idx) => (
-                              <span
-                                key={idx}
-                                className="inline-block px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-[11px] text-gray-600 truncate"
-                              >
-                                {ing}
+                        </td>
+                        <td className="py-3.5 px-6 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 shadow-2xs">
+                            {categoryName}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-6 whitespace-nowrap font-mono font-bold text-gray-900 text-sm">
+                          {formatCurrency(prod.price)}
+                        </td>
+                        <td className="py-3.5 px-6">
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            {/* Sizes badge */}
+                            {Array.isArray(prod.sizes) && prod.sizes.length > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200/80">
+                                <Maximize2 className="w-2.5 h-2.5" /> {prod.sizes.length} Sizes
                               </span>
-                            ))
+                            ) : null}
+
+                            {/* Toppings badge */}
+                            {Array.isArray(prod.toppings) && prod.toppings.length > 0 ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-700 border border-purple-200/80">
+                                <Layers className="w-2.5 h-2.5" /> {prod.toppings.length} Topping
+                              </span>
+                            ) : null}
+
+                            {(!Array.isArray(prod.sizes) || prod.sizes.length === 0) &&
+                             (!Array.isArray(prod.toppings) || prod.toppings.length === 0) && (
+                              <span className="text-gray-400 italic text-[11px]">-- Mặc định --</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-6">
+                          {Array.isArray(prod.ingredients) && prod.ingredients.length > 0 ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-700 border border-gray-200/80">
+                              <UtensilsCrossed className="w-2.5 h-2.5" /> {prod.ingredients.length} Nguyên liệu
+                            </span>
                           ) : (
-                            <span className="text-gray-400 italic text-xs">--</span>
+                            <span className="text-gray-400 italic text-xs">-- Không có --</span>
                           )}
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-6">
-                        {prod.is_available ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            Đang kinh doanh
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
-                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                            Tạm ngưng bán
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenEdit(prod)}
-                            className="p-1.5 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-                            title="Sửa sản phẩm"
-                          >
-                            <Edit2 className="w-4 h-4" strokeWidth={1.75} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDelete(prod)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="Xóa sản phẩm"
-                          >
-                            <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                        </td>
+                        <td className="py-3.5 px-6 whitespace-nowrap">
+                          {prod.is_available ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0" />
+                              Đang kinh doanh
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-600 border border-gray-200 whitespace-nowrap">
+                              <span className="w-1.5 h-1.5 rounded-full bg-gray-400 flex-shrink-0" />
+                              Tạm ngưng bán
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-6 whitespace-nowrap text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(prod)}
+                              className="p-1.5 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="Sửa sản phẩm"
+                            >
+                              <Edit2 className="w-4 h-4" strokeWidth={1.75} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDelete(prod)}
+                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              title="Xóa sản phẩm"
+                            >
+                              <Trash2 className="w-4 h-4" strokeWidth={1.75} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded Detail Drawer Row */}
+                      {isExpanded && (
+                        <tr className="bg-gradient-to-b from-blue-50/40 via-gray-50/70 to-white border-b border-gray-200">
+                          <td colSpan="8" className="p-5 pl-14">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              {/* Box 1: Sizes detail */}
+                              <div className="bg-white border border-blue-100 rounded-xl p-3.5 shadow-2xs">
+                                <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-blue-50">
+                                  <div className="w-6 h-6 rounded-md bg-blue-50 flex items-center justify-center text-blue-600">
+                                    <Maximize2 className="w-3.5 h-3.5" />
+                                  </div>
+                                  <h4 className="text-xs font-bold text-blue-950 uppercase tracking-wider">Kích cỡ (sizes)</h4>
+                                </div>
+                                {Array.isArray(prod.sizes) && prod.sizes.length > 0 ? (
+                                  <div className="space-y-1.5">
+                                    {prod.sizes.map((s, idx) => {
+                                      const multText = s.price_multiplier !== 1 ? `Hệ số x${s.price_multiplier}` : 'Giá chuẩn';
+                                      const extraText = s.extra_price > 0 ? `+${formatCurrency(s.extra_price)}` : '';
+                                      const calcPrice = (Number(prod.price) * Number(s.price_multiplier)) + Number(s.extra_price);
+                                      return (
+                                        <div key={idx} className="flex items-center justify-between text-xs bg-blue-50/40 px-2.5 py-1.5 rounded-lg border border-blue-100/60 font-medium">
+                                          <span className="text-blue-900 font-semibold">{s.size_name} <span className="text-[11px] text-blue-600 font-normal">({[multText, extraText].filter(Boolean).join(' • ')})</span></span>
+                                          <span className="font-mono font-bold text-blue-700">{formatCurrency(calcPrice)}</span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-400 italic py-2">Sản phẩm dùng 1 kích cỡ chuẩn ({formatCurrency(prod.price)}).</p>
+                                )}
+                              </div>
+
+                              {/* Box 2: Toppings detail */}
+                              <div className="bg-white border border-purple-100 rounded-xl p-3.5 shadow-2xs">
+                                <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-purple-50">
+                                  <div className="w-6 h-6 rounded-md bg-purple-50 flex items-center justify-center text-purple-600">
+                                    <Layers className="w-3.5 h-3.5" />
+                                  </div>
+                                  <h4 className="text-xs font-bold text-purple-950 uppercase tracking-wider">Topping & Món bán kèm</h4>
+                                </div>
+                                {Array.isArray(prod.toppings) && prod.toppings.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {prod.toppings.map((t, idx) => (
+                                      <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-950 border border-purple-200/80 rounded-lg text-xs font-medium">
+                                        <span>{t.topping_name}</span>
+                                        {t.extra_price > 0 && <span className="text-purple-600 font-mono font-bold">+{formatCurrency(t.extra_price)}</span>}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-400 italic py-2">Không có topping cấu hình riêng cho món này.</p>
+                                )}
+                              </div>
+
+                              {/* Box 3: Ingredients detail */}
+                              <div className="bg-white border border-gray-200 rounded-xl p-3.5 shadow-2xs">
+                                <div className="flex items-center gap-2 mb-2.5 pb-2 border-b border-gray-100">
+                                  <div className="w-6 h-6 rounded-md bg-gray-100 flex items-center justify-center text-gray-700">
+                                    <UtensilsCrossed className="w-3.5 h-3.5" />
+                                  </div>
+                                  <h4 className="text-xs font-bold text-gray-900 uppercase tracking-wider">Nguyên liệu chính</h4>
+                                </div>
+                                {Array.isArray(prod.ingredients) && prod.ingredients.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {prod.ingredients.map((ing, idx) => (
+                                      <span key={idx} className="inline-block px-2.5 py-1 bg-gray-50 border border-gray-200 text-gray-800 rounded-lg text-xs font-medium">
+                                        {ing}
+                                      </span>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <p className="text-xs text-gray-400 italic py-2">Chưa cập nhật danh sách nguyên liệu.</p>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   );
                 })
               )}

@@ -11,6 +11,7 @@ const uploadAPI = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 60000,
     });
   },
 };
