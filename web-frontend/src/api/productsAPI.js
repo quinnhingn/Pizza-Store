@@ -46,6 +46,24 @@ const productsAPI = {
   deleteProduct: (id) => {
     return axiosInstance.delete(`/products/${id}`);
   },
+
+  /**
+   * Lấy danh sách sản phẩm phân trang dành riêng cho Khách hàng (Public Customer API)
+   * @param {Object} params { page, page_size, category_id, min_price, max_price, search }
+   * @returns {Promise<Object>} Object phân trang { items, total_count, total_pages, page, page_size }
+   */
+  getPublicProducts: (params = {}) => {
+    return axiosInstance.get('/public/products', { params });
+  },
+
+  /**
+   * Lấy chi tiết một sản phẩm dành cho Khách hàng (Public Customer API)
+   * @param {number} id 
+   * @returns {Promise<Object>} Chi tiết product (đã eager load sizes, toppings, ingredients)
+   */
+  getPublicProductById: (id) => {
+    return axiosInstance.get(`/public/products/${id}`);
+  },
 };
 
 export default productsAPI;
