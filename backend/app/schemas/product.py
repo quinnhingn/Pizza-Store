@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime
 from decimal import Decimal
@@ -56,3 +56,21 @@ class ProductResponse(ProductBase):
 
     class Config:
         from_attributes = True
+
+
+class PaginatedProductResponse(BaseModel):
+    items: List[ProductResponse]
+    total_count: int
+    total_pages: int
+    page: int
+    page_size: int
+    total: Optional[int] = None
+    limit: Optional[int] = None
+
+    @model_validator(mode="after")
+    def set_compatibility_fields(self) -> "PaginatedProductResponse":
+        if self.total is None:
+            self.total = self.total_count
+        if self.limit is None:
+            self.limit = self.page_size
+        return self
