@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from typing import Dict
 
 # Import routers
-from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products
+from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products, cart
 
 # Ensure static/uploads directory exists for fallback images
 os.makedirs("static/uploads", exist_ok=True)
@@ -37,6 +37,7 @@ app.include_router(upload.router, prefix="/api/upload", tags=["Upload"])
 app.include_router(ingredients.router, prefix="/api/ingredients", tags=["Master Catalog - Ingredients"])
 app.include_router(catalog_sizes_toppings.router_sizes, prefix="/api/sizes", tags=["Master Catalog - Sizes"])
 app.include_router(catalog_sizes_toppings.router_toppings, prefix="/api/toppings", tags=["Master Catalog - Toppings"])
+app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 
 
 
