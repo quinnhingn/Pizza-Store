@@ -3,6 +3,8 @@ import { Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import categoriesAPI from '../../api/categoriesAPI';
 import productsAPI from '../../api/productsAPI';
 import ProductCard from '../../components/customer/ProductCard';
+import ProductDetailModal from '../../components/customer/ProductDetailModal';
+import useCart from '../../hooks/useCart';
 
 const PRICE_RANGES = [
   { label: 'Tất cả giá', min: null, max: null },
@@ -12,6 +14,7 @@ const PRICE_RANGES = [
 ];
 
 const Home = () => {
+  const { addToCart } = useCart();
   // State quản lý danh mục
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null); // null = Tất cả
@@ -30,8 +33,9 @@ const Home = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [selectedPriceIndex, setSelectedPriceIndex] = useState(0);
 
-  // State thông báo/chọn món tạm thời (chuẩn bị cho Day 13 Modal)
-  const [selectedProductAlert, setSelectedProductAlert] = useState(null);
+  // State quản lý Modal Chi Tiết Món & Toast thông báo giỏ hàng (Day 13)
+  const [activeDetailProduct, setActiveDetailProduct] = useState(null);
+  const [toastAlert, setToastAlert] = useState(null);
 
   const menuSectionRef = useRef(null);
 
@@ -128,27 +132,53 @@ const Home = () => {
     setCurrentPage(1);
   };
 
-  // Xử lý khi chọn món (Day 12 feedback - chuẩn bị chuyển tiếp Day 13)
+  // Xử lý khi chọn món (Mở Modal chi tiết - Day 13)
   const handleSelectProduct = (product) => {
-    setSelectedProductAlert(product);
-    setTimeout(() => {
-      setSelectedProductAlert(null);
-    }, 4000);
+    setActiveDetailProduct(product);
+  };
+
+  const handleAddToCartFromModal = async (payload) => {
+    if (!payload) return;
+    const apiPayload = {
+      product_id: payload.product.id,
+      size_name: payload.size?.size_name || null,
+      toppings: (payload.toppings || []).map(t => ({
+        name: t.topping_name || t.name,
+        price: Number(t.extra_price || t.price || 0)
+      })),
+      quantity: payload.quantity || 1,
+      note: payload.note || "",
+      unit_price: Number(payload.unitPrice || 0),
+      product_info: payload.product
+    };
+    const result = await addToCart(apiPayload);
+    if (result && result.success !== false) {
+      setToastAlert('Đã thêm vào giỏ hàng');
+      setTimeout(() => {
+        setToastAlert(null);
+      }, 4000);
+    } else {
+      alert(result?.message || 'Có lỗi khi thêm vào giỏ hàng');
+    }
   };
 
   return (
     <div className="min-h-screen pb-16 bg-gray-50">
-      {/* Toast thông báo chọn món nhanh (Day 12 feedback) */}
-      {selectedProductAlert && (
-        <div className="fixed bottom-6 right-6 z-50 bg-stone-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-stone-700 flex items-center gap-3 animate-bounce">
-          <span className="text-xl">🍕</span>
-          <div>
-            <p className="text-xs text-gray-400 font-medium uppercase tracking-wider">Đã chọn món</p>
-            <p className="text-sm font-bold text-white">{selectedProductAlert.name}</p>
-          </div>
+      {/* Modal Chi tiết Món & Chọn Size/Topping (Day 13) */}
+      <ProductDetailModal
+        product={activeDetailProduct}
+        isOpen={Boolean(activeDetailProduct)}
+        onClose={() => setActiveDetailProduct(null)}
+        onAddToCart={handleAddToCartFromModal}
+      />
+
+      {/* Toast thông báo sau khi thêm vào giỏ hàng (UI hiện đại, nổi bật và tinh tế) */}
+      {toastAlert && (
+        <div className="fixed bottom-6 right-6 z-50 bg-emerald-600 text-white px-6 py-3.5 rounded-2xl shadow-xl shadow-emerald-600/30 flex items-center gap-4 animate-fadeIn border border-emerald-500/30">
+          <span className="text-sm font-bold tracking-wide">{toastAlert}</span>
           <button
-            onClick={() => setSelectedProductAlert(null)}
-            className="ml-2 text-gray-400 hover:text-white transition-colors"
+            onClick={() => setToastAlert(null)}
+            className="text-emerald-200 hover:text-white transition-colors shrink-0"
           >
             <X className="w-4 h-4" />
           </button>

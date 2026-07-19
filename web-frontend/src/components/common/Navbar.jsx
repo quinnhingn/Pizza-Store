@@ -1,8 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
+import useCart from '../../hooks/useCart';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
+  const { totalItems } = useCart();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -21,6 +23,22 @@ const Navbar = () => {
 
         {/* Navigation Actions */}
         <div className="flex items-center gap-2 sm:gap-4">
+          {/* Nút Giỏ hàng */}
+          <Link
+            to="/cart"
+            title="Giỏ hàng của bạn"
+            className="relative p-2 sm:p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-xl border border-white/20 text-white shadow-sm flex items-center justify-center"
+          >
+            <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            {totalItems > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 bg-yellow-400 text-red-900 text-[10px] sm:text-xs font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md">
+                {totalItems}
+              </span>
+            )}
+          </Link>
+
           {isAuthenticated && user ? (
             <div className="flex items-center gap-2 sm:gap-4">
               <Link
