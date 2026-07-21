@@ -148,10 +148,21 @@ async def create_voucher(
 
     voucher_data = payload.model_dump()
     voucher_data["code"] = code_clean
+    if voucher_data.get("start_date") and getattr(voucher_data["start_date"], "tzinfo", None) is not None:
+        voucher_data["start_date"] = voucher_data["start_date"].replace(tzinfo=None)
+    if voucher_data.get("end_date") and getattr(voucher_data["end_date"], "tzinfo", None) is not None:
+        voucher_data["end_date"] = voucher_data["end_date"].replace(tzinfo=None)
     new_voucher = Voucher(**voucher_data)
-    db.add(new_voucher)
-    await db.commit()
-    await db.refresh(new_voucher)
+    try:
+        db.add(new_voucher)
+        await db.commit()
+        await db.refresh(new_voucher)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Không thể tạo voucher: {str(e)}"
+        )
     return new_voucher
 
 @router.put("/{id}", response_model=VoucherResponse)
@@ -180,11 +191,23 @@ async def update_voucher(
                 raise HTTPException(status_code=400, detail="Mã voucher mới đã tồn tại.")
         update_data["code"] = code_clean
 
+    if "start_date" in update_data and update_data["start_date"] and getattr(update_data["start_date"], "tzinfo", None) is not None:
+        update_data["start_date"] = update_data["start_date"].replace(tzinfo=None)
+    if "end_date" in update_data and update_data["end_date"] and getattr(update_data["end_date"], "tzinfo", None) is not None:
+        update_data["end_date"] = update_data["end_date"].replace(tzinfo=None)
+
     for key, value in update_data.items():
         setattr(voucher, key, value)
 
-    await db.commit()
-    await db.refresh(voucher)
+    try:
+        await db.commit()
+        await db.refresh(voucher)
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Không thể cập nhật voucher: {str(e)}"
+        )
     return voucher
 
 @router.patch("/{id}/status", response_model=VoucherResponse)
