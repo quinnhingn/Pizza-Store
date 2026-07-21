@@ -97,14 +97,30 @@ const VouchersManagement = () => {
     setShowFormModal(true);
   };
 
+  const formatLocalISO = (dateStr) => {
+    if (!dateStr) return new Date().toISOString().slice(0, 19);
+    if (dateStr.length === 16) return `${dateStr}:00`;
+    return dateStr;
+  };
+
   const handleSaveVoucher = async (e) => {
     e.preventDefault();
+    if (!formData.code.trim()) {
+      alert('Vui lòng nhập mã Voucher.');
+      return;
+    }
+    const discVal = parseFloat(formData.discount_value);
+    if (isNaN(discVal) || discVal <= 0) {
+      alert('Vui lòng nhập giá trị giảm giá hợp lệ (> 0).');
+      return;
+    }
+
     try {
       const payload = {
         code: formData.code.trim().toUpperCase(),
         min_order_value: formData.min_order_value ? parseFloat(formData.min_order_value) : null,
-        start_date: formData.start_date ? new Date(formData.start_date).toISOString() : new Date().toISOString(),
-        end_date: formData.end_date ? new Date(formData.end_date).toISOString() : new Date().toISOString(),
+        start_date: formatLocalISO(formData.start_date),
+        end_date: formatLocalISO(formData.end_date),
         usage_limit: formData.usage_limit ? parseInt(formData.usage_limit, 10) : null,
         is_active: formData.is_active
       };
@@ -128,7 +144,11 @@ const VouchersManagement = () => {
       setShowFormModal(false);
       fetchVouchers();
     } catch (err) {
-      alert(err.response?.data?.detail || 'Có lỗi xảy ra khi lưu voucher.');
+      let detailMsg = err.response?.data?.detail;
+      if (Array.isArray(detailMsg)) {
+        detailMsg = detailMsg.map(d => `${d.loc ? d.loc.join('.') : 'Dữ liệu'}: ${d.msg}`).join('\n');
+      }
+      alert(detailMsg || 'Có lỗi xảy ra khi lưu voucher.');
     }
   };
 

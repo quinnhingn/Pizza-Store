@@ -13,6 +13,8 @@ import CategoriesManagement from './pages/admin/CategoriesManagement';
 import ProductsManagement from './pages/admin/ProductsManagement';
 import CatalogManagement from './pages/admin/CatalogManagement';
 import VouchersManagement from './pages/admin/VouchersManagement';
+import OrderHistory from './pages/customer/OrderHistory';
+import OrdersManagement from './pages/admin/OrdersManagement';
 
 const CustomerLayout = () => (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col">
@@ -38,6 +40,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/address-book" element={<Profile />} />
+                <Route path="/orders" element={<OrderHistory />} />
             </Route>
 
             {/* Protected Admin Area Routes */}
@@ -53,7 +56,7 @@ function App() {
                 <Route path="categories" element={<CategoriesManagement />} />
                 <Route path="products" element={<ProductsManagement />} />
                 <Route path="catalog" element={<CatalogManagement />} />
-                <Route path="orders" element={<div className="bg-white p-6 rounded-xl border border-gray-200 text-sm text-gray-600">Trang quản lý Đơn hàng</div>} />
+                <Route path="orders" element={<OrdersManagement />} />
                 <Route path="vouchers" element={<VouchersManagement />} />
                 <Route path="users" element={<div className="bg-white p-6 rounded-xl border border-gray-200 text-sm text-gray-600">Trang quản lý Khách hàng</div>} />
             </Route>
