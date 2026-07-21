@@ -4,13 +4,23 @@ from sqlalchemy.future import select
 from sqlalchemy import update
 from typing import List
 
-from app.core.deps import get_db, get_current_user
+from app.core.deps import get_db, get_current_user, get_current_admin_user
 from app.models.user import User
 from app.models.user_address import UserAddress
 from app.schemas.user import UserData
 from app.schemas.user_address import AddressCreate, AddressUpdate, AddressResponse, ProfileUpdate
 
 router = APIRouter()
+
+@router.get("/admin/customers", response_model=List[UserData])
+async def get_all_customers_admin(
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(get_current_admin_user)
+):
+    """Admin only: Get list of all active customer profiles for gifting or management."""
+    stmt = select(User).where(User.role == "customer", User.is_active == True).order_by(User.id.asc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
 
 @router.get("/me", response_model=UserData)
 async def get_my_profile(current_user: User = Depends(get_current_user)):

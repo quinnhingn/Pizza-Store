@@ -131,4 +131,8 @@ async def test_day14_cart_api():
         assert get_res_final.json()["total_items"] == 0
         assert len(get_res_final.json()["items"]) == 0
 
+        # 11. Cleanup test product and category so they do not pollute live database/menu
+        await client.delete(f"/api/products/{prod_id}", headers=headers)
+        await client.delete(f"/api/categories/{cat_id}", headers=headers)
+
         print("\n=== DAY 14 CART API TESTS PASSED SUCCESSFULLY! ===")

@@ -3,12 +3,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete
 from sqlalchemy.orm import selectinload, joinedload
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 
 from app.core.deps import get_db, get_current_admin_user
 from app.models.user import User
 from app.models.product import Product, Ingredient, ProductIngredient, ProductSize, ProductTopping
 from app.models.category import Category
+from app.models.order import OrderItem
 from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 
 router = APIRouter()
@@ -182,6 +184,21 @@ async def delete_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    await db.delete(product)
-    await db.commit()
+    # Kiểm tra xem sản phẩm có nằm trong đơn hàng lịch sử hay không
+    order_check = await db.execute(select(OrderItem.id).where(OrderItem.product_id == product_id).limit(1))
+    if order_check.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Sản phẩm đã tồn tại trong lịch sử đơn hàng nên không thể xóa do yêu cầu toàn vẹn dữ liệu. Bạn vui lòng chuyển sang trạng thái ngưng bán (Tạm ngưng)."
+        )
+
+    try:
+        await db.delete(product)
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Không thể xóa sản phẩm do đang có ràng buộc dữ liệu liên quan (giỏ hàng/đơn hàng)."
+        )
     return {"message": "Product deleted successfully"}

@@ -25,7 +25,7 @@ async def setup_users():
             admin.role = "admin"
         await session.commit()
 
-async def run_tests():
+async def test_day6_products_categories_api():
     print("==========================================")
     print("STARTING DAY 6 API TESTS (AsyncClient)")
     print("==========================================")
@@ -178,5 +178,5 @@ async def run_tests():
     await engine.dispose()
 
 if __name__ == "__main__":
-    asyncio.run(run_tests())
+    asyncio.run(test_day6_products_categories_api())
 

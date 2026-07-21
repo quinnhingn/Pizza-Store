@@ -22,7 +22,7 @@ async def setup_users():
             admin.role = "admin"
         await session.commit()
 
-async def run_tests():
+async def test_upload_api_flow():
     print("==========================================")
     print("STARTING UPLOAD API TESTS (AsyncClient)")
     print(f"Cloudinary Configured: {is_cloudinary_configured()}")
@@ -107,4 +107,4 @@ async def run_tests():
     await engine.dispose()
 
 if __name__ == "__main__":
-    asyncio.run(run_tests())
+    asyncio.run(test_upload_api_flow())
