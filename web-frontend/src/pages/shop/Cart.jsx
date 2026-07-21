@@ -4,17 +4,35 @@ import { Trash2, Plus, Minus, ShoppingBag, ArrowRight, Check } from 'lucide-reac
 import useCart from '../../hooks/useCart';
 import { formatCurrency } from '../../utils/formatCurrency';
 import ProductDetailModal from '../../components/customer/ProductDetailModal';
+import SavedVouchersModal from '../../components/customer/SavedVouchersModal';
 import productsAPI from '../../api/productsAPI';
+import useAuth from '../../hooks/useAuth';
 
 const DEFAULT_PIZZA_IMG = 'http://localhost:8000/static/uploads/default_pizza.png';
 
 const Cart = () => {
-  const { cartItems, totalItems, subtotal, loading, addToCart, updateCartItem, removeFromCart, clearCart } = useCart();
+  const { 
+    cartItems, 
+    totalItems, 
+    subtotal, 
+    loading, 
+    appliedVoucher, 
+    voucherError, 
+    applyVoucher, 
+    removeVoucher, 
+    addToCart, 
+    updateCartItem, 
+    removeFromCart, 
+    clearCart 
+  } = useCart();
   const [updatingId, setUpdatingId] = useState(null);
   const [activeEditItem, setActiveEditItem] = useState(null);
   const [activeModalProduct, setActiveModalProduct] = useState(null);
   const [couponCode, setCouponCode] = useState('');
-  const [couponApplied, setCouponApplied] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [localMessage, setLocalMessage] = useState(null);
+  const [showSavedVouchers, setShowSavedVouchers] = useState(false);
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const handleEditItem = async (item) => {
@@ -83,14 +101,40 @@ const Cart = () => {
     }
   };
 
-  const handleApplyCoupon = (e) => {
+  const handleApplyCoupon = async (e) => {
     e.preventDefault();
-    if (couponCode.trim()) {
-      setCouponApplied(true);
+    if (!couponCode.trim()) return;
+    setApplying(true);
+    setLocalMessage(null);
+    const res = await applyVoucher(couponCode);
+    setApplying(false);
+    if (res.success) {
+      setLocalMessage({ type: 'success', text: res.data.message });
+    } else {
+      setLocalMessage({ type: 'error', text: res.message });
     }
   };
 
-  const discountAmount = couponApplied ? 30000 : 0;
+  const handleRemoveCoupon = () => {
+    removeVoucher();
+    setCouponCode('');
+    setLocalMessage(null);
+  };
+
+  const handleSelectFromModal = async (code) => {
+    setCouponCode(code);
+    setApplying(true);
+    setLocalMessage(null);
+    const res = await applyVoucher(code);
+    setApplying(false);
+    if (res.success) {
+      setLocalMessage({ type: 'success', text: res.data.message });
+    } else {
+      setLocalMessage({ type: 'error', text: res.message });
+    }
+  };
+
+  const discountAmount = appliedVoucher ? Number(appliedVoucher.discount_amount || 0) : 0;
   const shippingFee = totalItems > 0 ? (subtotal >= 200000 ? 0 : 25000) : 0;
   const finalTotal = Math.max(0, subtotal - discountAmount + shippingFee);
 
@@ -284,44 +328,69 @@ const Cart = () => {
 
                 {/* Mã giảm giá */}
                 <form onSubmit={handleApplyCoupon} className="mt-4 mb-6">
-                  <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block mb-2">
-                    Mã ưu đãi
-                  </label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wider block">
+                      Mã ưu đãi
+                    </label>
+                    {isAuthenticated && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSavedVouchers(true)}
+                        className="text-xs font-bold text-red-600 hover:text-red-700 hover:underline transition-colors"
+                      >
+                        Chọn từ kho voucher của tôi
+                      </button>
+                    )}
+                  </div>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      placeholder="Nhập mã ưu đãi..."
-                      disabled={couponApplied}
-                      className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 font-medium transition-all disabled:bg-gray-100"
+                      onChange={(e) => {
+                        setCouponCode(e.target.value);
+                        setLocalMessage(null);
+                      }}
+                      placeholder="WELCOME50, PIZZA10, FREESHIP25..."
+                      disabled={Boolean(appliedVoucher) || applying}
+                      className="w-full px-3.5 py-2 bg-gray-50 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-600 font-medium transition-all disabled:bg-gray-100 uppercase"
                     />
-                    {couponApplied ? (
+                    {appliedVoucher ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          setCouponApplied(false);
-                          setCouponCode('');
-                        }}
-                        className="px-3 py-2 bg-green-100 text-green-700 rounded-xl text-xs font-semibold flex items-center gap-1 hover:bg-green-200 transition-colors shrink-0"
+                        onClick={handleRemoveCoupon}
+                        className="px-3 py-2 bg-emerald-100 text-emerald-700 rounded-xl text-xs font-semibold flex items-center gap-1 hover:bg-emerald-200 transition-colors shrink-0"
                       >
                         <Check className="w-3.5 h-3.5" />
-                        <span>Đã dùng</span>
+                        <span>Đã áp dụng</span>
                       </button>
                     ) : (
                       <button
                         type="submit"
-                        disabled={!couponCode.trim()}
-                        className="px-4 py-2 bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white font-semibold text-sm rounded-xl transition-all shrink-0"
+                        disabled={!couponCode.trim() || applying}
+                        className="px-4 py-2 bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white font-semibold text-sm rounded-xl transition-all shrink-0 flex items-center gap-1"
                       >
-                        Áp dụng
+                        {applying ? "Đang xử lý..." : "Áp dụng"}
                       </button>
                     )}
                   </div>
-                  {couponApplied && (
-                    <p className="text-xs text-emerald-600 font-medium mt-1.5 flex items-center gap-1">
-                      <Check className="w-3.5 h-3.5" />
-                      Giảm 30.000 ₫ cho đơn hàng
+                  {(appliedVoucher || (localMessage && localMessage.type === 'success')) && (
+                    <div className="mt-2 p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between">
+                      <p className="text-xs text-emerald-700 font-medium flex items-center gap-1.5">
+                        <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span>Mã <strong>{appliedVoucher?.code}</strong>: Giảm {formatCurrency(appliedVoucher?.discount_amount || 0)}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-xs text-gray-400 hover:text-red-600 underline ml-2 shrink-0"
+                      >
+                        Hủy bỏ
+                      </button>
+                    </div>
+                  )}
+                  {((!appliedVoucher && localMessage && localMessage.type === 'error') || voucherError) && !appliedVoucher && (
+                    <p className="text-xs text-red-600 font-medium mt-2 bg-red-50 border border-red-200 p-2 rounded-xl">
+                      ❌ {localMessage?.text || voucherError}
                     </p>
                   )}
                 </form>
@@ -333,9 +402,9 @@ const Cart = () => {
                     <span className="font-medium text-gray-900">{formatCurrency(subtotal)}</span>
                   </div>
 
-                  {couponApplied && (
+                  {appliedVoucher && discountAmount > 0 && (
                     <div className="flex justify-between text-emerald-600 font-medium">
-                      <span>Ưu đãi giảm giá:</span>
+                      <span>Ưu đãi voucher ({appliedVoucher.code}):</span>
                       <span>-{formatCurrency(discountAmount)}</span>
                     </div>
                   )}
@@ -402,6 +471,14 @@ const Cart = () => {
           }}
           onAddToCart={handleSaveFromModal}
           initialCartItem={activeEditItem}
+        />
+
+        {/* Modal Kho Voucher đã lưu */}
+        <SavedVouchersModal
+          isOpen={showSavedVouchers}
+          onClose={() => setShowSavedVouchers(false)}
+          onSelectVoucher={handleSelectFromModal}
+          currentOrderValue={subtotal}
         />
       </div>
     </div>

@@ -1,6 +1,10 @@
 import axiosInstance from './axiosInstance';
 
 const userAPI = {
+  getAdminCustomers: async () => {
+    return await axiosInstance.get('/users/admin/customers');
+  },
+
   getProfile: async () => {
     return await axiosInstance.get('/users/me');
   },

@@ -1,5 +1,6 @@
 import { createContext, useState, useEffect, useCallback } from 'react';
 import cartAPI from '../api/cartAPI';
+import vouchersAPI from '../api/vouchersAPI';
 import useAuth from '../hooks/useAuth';
 
 export const CartContext = createContext(null);
@@ -10,6 +11,8 @@ export const CartProvider = ({ children }) => {
   const [totalItems, setTotalItems] = useState(0);
   const [subtotal, setSubtotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
+  const [voucherError, setVoucherError] = useState(null);
 
   // Helper cho Guest Cart trong localStorage
   const getGuestCart = () => {
@@ -210,16 +213,83 @@ export const CartProvider = ({ children }) => {
     }
   };
 
+  // Tự động kiểm tra/tính lại số tiền giảm khi subtotal thay đổi
+  useEffect(() => {
+    if (appliedVoucher && appliedVoucher.code) {
+      if (subtotal === 0) {
+        setAppliedVoucher(null);
+        setVoucherError(null);
+        return;
+      }
+      vouchersAPI.validateVoucher(appliedVoucher.code, subtotal)
+        .then(res => {
+          if (res.valid) {
+            setAppliedVoucher({
+              code: res.code,
+              discount_amount: res.discount_amount,
+              details: res.voucher_details
+            });
+            setVoucherError(null);
+          } else {
+            setAppliedVoucher(null);
+            setVoucherError(res.message);
+          }
+        })
+        .catch(() => {
+          setAppliedVoucher(null);
+        });
+    }
+  }, [subtotal]);
+
+  // Áp dụng voucher
+  const applyVoucher = async (code) => {
+    setVoucherError(null);
+    if (!code || !code.trim()) {
+      setVoucherError("Vui lòng nhập mã giảm giá");
+      return { success: false, message: "Vui lòng nhập mã giảm giá" };
+    }
+    try {
+      const res = await vouchersAPI.validateVoucher(code.trim(), subtotal);
+      if (res.valid) {
+        setAppliedVoucher({
+          code: res.code,
+          discount_amount: res.discount_amount,
+          details: res.voucher_details
+        });
+        return { success: true, data: res };
+      } else {
+        setAppliedVoucher(null);
+        setVoucherError(res.message);
+        return { success: false, message: res.message };
+      }
+    } catch (err) {
+      const msg = err.response?.data?.detail || "Lỗi khi kiểm tra mã giảm giá";
+      setAppliedVoucher(null);
+      setVoucherError(msg);
+      return { success: false, message: msg };
+    }
+  };
+
+  // Hủy voucher
+  const removeVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherError(null);
+  };
+
   const value = {
     cartItems,
     totalItems,
     subtotal,
     loading,
+    appliedVoucher,
+    voucherError,
     fetchCart,
     addToCart,
     updateCartItem,
     removeFromCart,
-    clearCart
+    clearCart,
+    applyVoucher,
+    removeVoucher
   };
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
