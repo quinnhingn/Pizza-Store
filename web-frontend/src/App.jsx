@@ -2,6 +2,7 @@ import { Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/common/Navbar';
 import Home from './pages/shop/Home';
 import Cart from './pages/shop/Cart';
+import Checkout from './pages/shop/Checkout';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import Profile from './pages/customer/Profile';
@@ -32,6 +33,7 @@ function App() {
             <Route element={<CustomerLayout />}>
                 <Route path="/" element={<Home />} />
                 <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/profile" element={<Profile />} />

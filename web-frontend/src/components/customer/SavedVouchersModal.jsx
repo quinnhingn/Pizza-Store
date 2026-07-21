@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import vouchersAPI from '../../api/vouchersAPI';
 
-const SavedVouchersModal = ({ isOpen, onClose, onSelectVoucher, currentOrderValue }) => {
+const SavedVouchersModal = ({ isOpen, onClose, onSelectVoucher, currentOrderValue, appliedVoucherCode }) => {
   const [savedVouchers, setSavedVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -72,12 +72,15 @@ const SavedVouchersModal = ({ isOpen, onClose, onSelectVoucher, currentOrderValu
               const isLimitReached = v.usage_limit !== null && v.used_count >= v.usage_limit;
               const isValueEligible = !v.min_order_value || (currentOrderValue >= v.min_order_value);
               const isEligible = !isExpired && !isLimitReached && isValueEligible;
+              const isCurrentlyUsed = appliedVoucherCode && v.code === appliedVoucherCode;
 
               return (
                 <div
                   key={item.id}
                   className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
-                    isEligible
+                    isCurrentlyUsed
+                      ? 'border-emerald-300 bg-emerald-50/40 shadow-sm'
+                      : isEligible
                       ? 'border-red-200 bg-gradient-to-r from-white via-red-50/20 to-white shadow-sm hover:shadow'
                       : 'border-gray-200 bg-gray-50 opacity-60'
                   }`}
@@ -110,22 +113,31 @@ const SavedVouchersModal = ({ isOpen, onClose, onSelectVoucher, currentOrderValu
                     {isExpired && <div className="text-[11px] text-red-600 font-medium">* Mã ưu đãi đã hết hạn sử dụng</div>}
                   </div>
 
-                  <button
-                    onClick={() => {
-                      if (isEligible) {
-                        onSelectVoucher(v.code);
-                        onClose();
-                      }
-                    }}
-                    disabled={!isEligible}
-                    className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex-shrink-0 ${
-                      isEligible
-                        ? 'bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-sm'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    Chọn mã này
-                  </button>
+                  {isCurrentlyUsed ? (
+                    <span className="px-3.5 py-2 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200 flex items-center gap-1.5 flex-shrink-0">
+                      <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span>Đang dùng</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (isEligible) {
+                          onSelectVoucher(v.code);
+                          onClose();
+                        }
+                      }}
+                      disabled={!isEligible}
+                      className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex-shrink-0 ${
+                        isEligible
+                          ? 'bg-red-600 hover:bg-red-700 active:scale-95 text-white shadow-sm'
+                          : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      Chọn mã này
+                    </button>
+                  )}
                 </div>
               );
             })

@@ -25,6 +25,7 @@ const Cart = () => {
     removeFromCart, 
     clearCart 
   } = useCart();
+  const navigate = useNavigate();
   const [updatingId, setUpdatingId] = useState(null);
   const [activeEditItem, setActiveEditItem] = useState(null);
   const [activeModalProduct, setActiveModalProduct] = useState(null);
@@ -33,7 +34,6 @@ const Cart = () => {
   const [localMessage, setLocalMessage] = useState(null);
   const [showSavedVouchers, setShowSavedVouchers] = useState(false);
   const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
 
   const handleEditItem = async (item) => {
     let fullProduct = item.product;
@@ -439,9 +439,7 @@ const Cart = () => {
                 {/* Nút đặt hàng */}
                 <button
                   type="button"
-                  onClick={() => {
-                    alert('Tính năng đặt hàng sẽ được ra mắt trong các task tiếp theo!');
-                  }}
+                  onClick={() => navigate('/checkout')}
                   className="w-full py-3.5 bg-red-600 hover:bg-red-700 active:scale-98 text-white font-bold text-base rounded-xl transition-all flex items-center justify-center gap-2"
                 >
                   <span>Tiến hành đặt hàng</span>
@@ -479,6 +477,7 @@ const Cart = () => {
           onClose={() => setShowSavedVouchers(false)}
           onSelectVoucher={handleSelectFromModal}
           currentOrderValue={subtotal}
+          appliedVoucherCode={appliedVoucher?.code}
         />
       </div>
     </div>
