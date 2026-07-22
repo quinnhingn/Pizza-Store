@@ -30,6 +30,7 @@ class OrderResponse(BaseModel):
     discount_amount: float
     voucher_code: Optional[str] = None
     status: str
+    customer_confirmed: bool = False
     shipping_full_name: str
     shipping_address: str
     shipping_phone: str

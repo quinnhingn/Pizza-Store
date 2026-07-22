@@ -11,6 +11,7 @@ from app.models.order import Order, OrderItem
 from app.models.cart import CartItem
 from app.models.voucher import Voucher
 from app.models.user import User
+from app.models.user_notification import UserNotification
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
 
 router = APIRouter()
@@ -131,6 +132,20 @@ async def create_order(
             db.add(o_item)
             await db.delete(c_item)
 
+        # 5.1 Create notifications for all admins
+        admin_stmt = select(User).where(User.role == "admin", User.is_active == True)
+        admin_res = await db.execute(admin_stmt)
+        admins = admin_res.scalars().all()
+        for adm in admins:
+            notif = UserNotification(
+                user_id=adm.id,
+                title="Đơn đặt hàng mới",
+                message=f"Đơn hàng mới {order_code} trị giá {total_amount:,.0f}đ vừa được đặt bởi {payload.shipping_full_name} ({payload.shipping_phone}).",
+                type="new_order",
+                reference_code=order_code
+            )
+            db.add(notif)
+
         # 6. Commit transaction atomically
         await db.commit()
 
@@ -213,15 +228,140 @@ async def update_order_status(
             detail="Đơn hàng không tồn tại."
         )
 
-    valid_statuses = ["pending", "confirmed", "shipping", "completed", "cancelled"]
-    if payload.status not in valid_statuses:
+    valid_transitions = {
+        "pending": ["confirmed", "cancelled"],
+        "confirmed": ["shipping", "cancelled"],
+        "shipping": ["completed", "cancelled"],
+        "completed": [],
+        "cancelled": []
+    }
+
+    if order.status in ["cancelled", "completed"] and payload.status != order.status:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Trạng thái không hợp lệ. Các trạng thái hợp lệ: {', '.join(valid_statuses)}"
+            detail="Đơn hàng đã kết thúc (Hoàn thành hoặc Đã hủy), không thể chuyển trạng thái."
+        )
+
+    allowed_next = valid_transitions.get(order.status, [])
+    if payload.status not in allowed_next and payload.status != order.status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Trạng thái '{payload.status}' không hợp lệ từ trạng thái hiện tại '{order.status}'. Chỉ có thể chuyển sang: {', '.join(allowed_next)}"
+        )
+
+    if payload.status == "completed" and not order.customer_confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Chưa thể hoàn thành đơn hàng: Khách hàng chưa bấm xác nhận Đã nhận hàng."
         )
 
     order.status = payload.status
     db.add(order)
+
+    # Nếu chuyển sang 'shipping', thông báo cho Customer
+    if payload.status == "shipping":
+        notif = UserNotification(
+            user_id=order.user_id,
+            title="Đơn hàng đang được giao",
+            message=f"Đơn hàng {order.order_code} của bạn đang được shipper vận chuyển đến địa chỉ đã đặt. Vui lòng chuẩn bị nhận hàng!",
+            type="order_shipping",
+            reference_code=order.order_code
+        )
+        db.add(notif)
+
+    await db.commit()
+    await db.refresh(order)
+    return order
+
+@router.put("/{order_id}/cancel", response_model=OrderResponse)
+async def cancel_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cancel an order. Only allowed when order status is 'pending'.
+    Customer can only cancel their own orders. Admin can cancel any order in 'pending' state.
+    """
+    stmt = (
+        select(Order)
+        .options(selectinload(Order.items).selectinload(OrderItem.product))
+        .where(Order.id == order_id)
+    )
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Đơn hàng không tồn tại."
+        )
+
+    if current_user.role != "admin" and order.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền hủy đơn hàng này."
+        )
+
+    if order.status != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Đơn hàng đang trong quá trình xử lý hoặc đã hoàn thành, không thể hủy."
+        )
+
+    order.status = "cancelled"
+    db.add(order)
+    await db.commit()
+    await db.refresh(order)
+    return order
+
+@router.put("/{order_id}/confirm-received", response_model=OrderResponse)
+async def confirm_order_received(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Customer confirms they have received the order when status is 'shipping'.
+    Sets customer_confirmed = True and sends notification to admins.
+    """
+    stmt = (
+        select(Order)
+        .options(selectinload(Order.items).selectinload(OrderItem.product))
+        .where(Order.id == order_id)
+    )
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
+
+    if not order or order.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Đơn hàng không tồn tại hoặc không thuộc tài khoản của bạn."
+        )
+
+    if order.status != "shipping":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Đơn hàng không ở trạng thái Đang giao hàng, không thể xác nhận nhận hàng."
+        )
+
+    order.customer_confirmed = True
+    db.add(order)
+
+    # Thông báo cho tất cả Admin biết khách đã nhận hàng
+    admin_stmt = select(User).where(User.role == "admin", User.is_active == True)
+    admin_res = await db.execute(admin_stmt)
+    admins = admin_res.scalars().all()
+    for adm in admins:
+        notif = UserNotification(
+            user_id=adm.id,
+            title="Khách đã nhận hàng",
+            message=f"Khách hàng {current_user.full_name or current_user.phone} đã xác nhận nhận thành công đơn hàng {order.order_code}.",
+            type="order_received",
+            reference_code=order.order_code
+        )
+        db.add(notif)
+
     await db.commit()
     await db.refresh(order)
     return order

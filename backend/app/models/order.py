@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Numeric, Text, TIMESTAMP, ForeignKey
+from sqlalchemy import Column, Integer, String, Numeric, Text, TIMESTAMP, ForeignKey, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -14,6 +14,7 @@ class Order(Base):
     discount_amount = Column(Numeric(10, 2), default=0)
     voucher_code = Column(String(50), ForeignKey("vouchers.code", ondelete="SET NULL"), nullable=True)
     status = Column(String(30), default="pending")
+    customer_confirmed = Column(Boolean, default=False)
     shipping_full_name = Column(String(100), nullable=False)
     shipping_address = Column(Text, nullable=False)
     shipping_phone = Column(String(20), nullable=False)
