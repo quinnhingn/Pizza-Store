@@ -3,5 +3,6 @@ __pycache__/
 .env
 node_modules/
 .DS_Store
-documentations/tests_output.log
+documentations/
 backend/tests_output.log
+*.db
