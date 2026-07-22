@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import useCart from '../../hooks/useCart';
-import notificationsAPI from '../../api/notificationsAPI';
-import NotificationsModal from '../customer/NotificationsModal';
+import NotificationDropdown from './NotificationDropdown';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -11,19 +10,7 @@ const Navbar = () => {
   const navigate = useNavigate();
 
   const [showDropdown, setShowDropdown] = useState(false);
-  const [showNotifModal, setShowNotifModal] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
   const dropdownRef = useRef(null);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchUnreadCount();
-      const interval = setInterval(fetchUnreadCount, 60000); // Poll every minute
-      return () => clearInterval(interval);
-    } else {
-      setUnreadCount(0);
-    }
-  }, [isAuthenticated]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -35,16 +22,6 @@ const Navbar = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const fetchUnreadCount = async () => {
-    try {
-      const res = await notificationsAPI.getMyNotifications();
-      const list = Array.isArray(res) ? res : (res.data || []);
-      const count = list.filter((n) => !n.is_read).length;
-      setUnreadCount(count);
-    } catch (err) {
-      console.error('Failed to fetch unread count:', err);
-    }
-  };
 
   const handleLogout = async () => {
     setShowDropdown(false);
@@ -66,20 +43,7 @@ const Navbar = () => {
           <div className="flex items-center gap-2 sm:gap-3">
             {/* Notification Bell (Only for logged-in user) */}
             {isAuthenticated && user && (
-              <button
-                onClick={() => setShowNotifModal(true)}
-                title="Hộp thư thông báo & quà tặng"
-                className="relative p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-full border border-white/20 text-white shadow-sm flex items-center justify-center"
-              >
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-yellow-400 text-red-900 text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md animate-bounce">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
+              <NotificationDropdown isAdmin={false} isDarkBg={true} />
             )}
 
             {/* Cart Button */}
@@ -203,12 +167,6 @@ const Navbar = () => {
         </div>
       </nav>
 
-      {/* Notifications Modal */}
-      <NotificationsModal
-        isOpen={showNotifModal}
-        onClose={() => setShowNotifModal(false)}
-        onRefreshCount={fetchUnreadCount}
-      />
     </>
   );
 };

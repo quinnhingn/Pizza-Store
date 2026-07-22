@@ -1,17 +1,27 @@
 import axiosInstance from './axiosInstance';
 
 const notificationsAPI = {
-  getMyNotifications: () => {
-    return axiosInstance.get('/notifications');
+  /**
+   * Lấy danh sách thông báo của user hiện tại
+   */
+  getMyNotifications: async () => {
+    return await axiosInstance.get('/notifications');
   },
 
-  markRead: (id) => {
-    return axiosInstance.patch(`/notifications/${id}/read`);
+  /**
+   * Đánh dấu 1 thông báo là đã đọc
+   * @param {number} id
+   */
+  markAsRead: async (id) => {
+    return await axiosInstance.patch(`/notifications/${id}/read`);
   },
 
-  markAllRead: () => {
-    return axiosInstance.patch('/notifications/read-all');
-  }
+  /**
+   * Đánh dấu tất cả thông báo là đã đọc
+   */
+  markAllAsRead: async () => {
+    return await axiosInstance.patch('/notifications/read-all');
+  },
 };
 
 export default notificationsAPI;
