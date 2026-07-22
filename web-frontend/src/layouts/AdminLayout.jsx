@@ -13,6 +13,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
+import NotificationDropdown from '../components/common/NotificationDropdown';
 
 const AdminLayout = () => {
   const { user, logout } = useAuth();
@@ -205,7 +206,8 @@ const AdminLayout = () => {
             <div className="h-4 w-px bg-gray-200" />
 
             <div className="flex items-center gap-3">
-              <span className="text-gray-700 font-medium">
+              <NotificationDropdown isAdmin={true} />
+              <span className="text-gray-700 font-medium ml-1">
                 {user?.full_name || user?.email || 'Quản trị viên'}
               </span>
               <button
@@ -219,8 +221,8 @@ const AdminLayout = () => {
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-8 overflow-y-auto">
-          <div className="max-w-6xl mx-auto">
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">
+          <div className="max-w-[1600px] mx-auto">
             <Outlet />
           </div>
         </main>

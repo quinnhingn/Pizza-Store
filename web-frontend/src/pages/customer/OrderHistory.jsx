@@ -26,6 +26,7 @@ const OrderHistory = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
@@ -49,6 +50,44 @@ const OrderHistory = () => {
       console.error('Failed to fetch orders:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) return;
+    try {
+      setActionLoading(true);
+      await ordersAPI.cancelOrder(orderId);
+      alert('Đã hủy đơn hàng thành công.');
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => ({ ...prev, status: 'cancelled' }));
+      }
+      await fetchMyOrders();
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Có lỗi xảy ra khi hủy đơn hàng.';
+      alert(msg);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleConfirmReceived = async (orderId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Bạn xác nhận đã nhận được đầy đủ món ăn và hải lòng với đơn hàng?')) return;
+    try {
+      setActionLoading(true);
+      const res = await ordersAPI.confirmReceived(orderId);
+      alert('Cảm ơn bạn đã xác nhận nhận hàng!');
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder((prev) => ({ ...prev, customer_confirmed: true }));
+      }
+      await fetchMyOrders();
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Có lỗi xảy ra khi xác nhận nhận hàng.';
+      alert(msg);
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -244,12 +283,38 @@ const OrderHistory = () => {
                           Tổng thanh toán: <span className="text-lg font-extrabold text-red-600">{formatPrice(order.total_amount)}</span>
                         </p>
                       </div>
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition shadow-sm"
-                      >
-                        Xem chi tiết
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {order.status === 'pending' && (
+                          <button
+                            disabled={actionLoading}
+                            onClick={(e) => handleCancelOrder(order.id, e)}
+                            className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold rounded-xl transition disabled:opacity-50 cursor-pointer"
+                          >
+                            Hủy đơn
+                          </button>
+                        )}
+                        {order.status === 'shipping' && (
+                          order.customer_confirmed ? (
+                            <span className="px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold rounded-xl flex items-center gap-1">
+                              ✓ Đã xác nhận nhận hàng
+                            </span>
+                          ) : (
+                            <button
+                              disabled={actionLoading}
+                              onClick={(e) => handleConfirmReceived(order.id, e)}
+                              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition shadow-xs disabled:opacity-50 cursor-pointer"
+                            >
+                              Đã nhận hàng
+                            </button>
+                          )
+                        )}
+                        <button
+                          onClick={() => setSelectedOrder(order)}
+                          className="px-4 py-2 bg-gray-900 hover:bg-gray-800 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
+                        >
+                          Xem chi tiết
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -376,10 +441,36 @@ const OrderHistory = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
+            <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                {selectedOrder.status === 'pending' && (
+                  <button
+                    disabled={actionLoading}
+                    onClick={() => handleCancelOrder(selectedOrder.id)}
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold rounded-xl transition disabled:opacity-50 cursor-pointer shadow-sm"
+                  >
+                    Hủy đơn hàng
+                  </button>
+                )}
+                {selectedOrder.status === 'shipping' && (
+                  selectedOrder.customer_confirmed ? (
+                    <span className="px-4 py-2 bg-emerald-100 text-emerald-800 text-sm font-bold rounded-xl flex items-center gap-1.5">
+                      ✓ Bạn đã xác nhận nhận hàng
+                    </span>
+                  ) : (
+                    <button
+                      disabled={actionLoading}
+                      onClick={() => handleConfirmReceived(selectedOrder.id)}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-xl transition disabled:opacity-50 cursor-pointer shadow-sm"
+                    >
+                      Xác nhận đã nhận hàng
+                    </button>
+                  )
+                )}
+              </div>
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition text-sm"
+                className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition text-sm cursor-pointer"
               >
                 Đóng
               </button>

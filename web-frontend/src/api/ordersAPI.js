@@ -31,6 +31,22 @@ const ordersAPI = {
   updateOrderStatus: async (orderId, status) => {
     return await axiosInstance.put(`/orders/${orderId}/status`, { status });
   },
+
+  /**
+   * Hủy đơn hàng (khi đang ở trạng thái pending)
+   * @param {number} orderId
+   */
+  cancelOrder: async (orderId) => {
+    return await axiosInstance.put(`/orders/${orderId}/cancel`);
+  },
+
+  /**
+   * Khách hàng xác nhận đã nhận được đơn hàng (khi đang ở trạng thái shipping)
+   * @param {number} orderId
+   */
+  confirmReceived: async (orderId) => {
+    return await axiosInstance.put(`/orders/${orderId}/confirm-received`);
+  },
 };
 
 export default ordersAPI;
