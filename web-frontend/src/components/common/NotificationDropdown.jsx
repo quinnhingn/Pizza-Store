@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck, Package, ShoppingBag, Gift, Info } from 'lucide-react';
 import useNotifications from '../../hooks/useNotifications';
+import vouchersAPI from '../../api/vouchersAPI';
 
 const NotificationDropdown = ({ isAdmin = false, isDarkBg = false }) => {
   const { notifications = [], unreadCount = 0, markAsRead, markAllAsRead } = useNotifications() || {};
@@ -31,9 +32,29 @@ const NotificationDropdown = ({ isAdmin = false, isDarkBg = false }) => {
         navigate('/admin/orders');
       }
     } else {
-      if (item.type === 'order_shipping' || item.reference_code) {
-        navigate('/orders');
+      if (item.type === 'order_shipping' || item.type === 'order_received' || item.reference_code) {
+        if (item.type !== 'voucher_gift') {
+           navigate('/orders');
+        } else {
+           navigate('/profile');
+        }
       }
+    }
+  };
+
+  const handleSaveVoucher = async (e, item) => {
+    e.stopPropagation(); // Ngăn sự kiện click của div cha (tránh gọi handleNotificationClick ngay)
+    if (!item.is_read) {
+      await markAsRead(item.id);
+    }
+    try {
+      await vouchersAPI.saveUserVoucher(item.reference_code, item.id);
+      alert('Đã lưu mã giảm giá thành công!');
+      // Có thể chuyển hướng đến trang ví voucher nếu cần
+      // navigate('/profile'); 
+      // setIsOpen(false);
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Lưu mã giảm giá thất bại. Mã có thể đã được lưu hoặc không hợp lệ.');
     }
   };
 
@@ -138,6 +159,16 @@ const NotificationDropdown = ({ isAdmin = false, isDarkBg = false }) => {
                     <p className="text-xs text-gray-600 mt-1 line-clamp-2 leading-relaxed">
                       {item.message}
                     </p>
+                    {item.type === 'voucher_gift' && item.reference_code && (
+                      <div className="mt-2.5">
+                        <button
+                          onClick={(e) => handleSaveVoucher(e, item)}
+                          className="px-3 py-1.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[11px] font-bold rounded-lg transition-colors cursor-pointer w-auto"
+                        >
+                          Lưu ngay
+                        </button>
+                      </div>
+                    )}
                   </div>
                   {!item.is_read && (
                     <span className="w-2 h-2 rounded-full bg-indigo-600 flex-shrink-0 mt-2" />

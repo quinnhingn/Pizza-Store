@@ -15,6 +15,7 @@ import CatalogManagement from './pages/admin/CatalogManagement';
 import VouchersManagement from './pages/admin/VouchersManagement';
 import OrderHistory from './pages/customer/OrderHistory';
 import OrdersManagement from './pages/admin/OrdersManagement';
+import AdminOrderHistory from './pages/admin/AdminOrderHistory';
 
 const CustomerLayout = () => (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col">
@@ -57,6 +58,7 @@ function App() {
                 <Route path="products" element={<ProductsManagement />} />
                 <Route path="catalog" element={<CatalogManagement />} />
                 <Route path="orders" element={<OrdersManagement />} />
+                <Route path="orders-history" element={<AdminOrderHistory />} />
                 <Route path="vouchers" element={<VouchersManagement />} />
                 <Route path="users" element={<div className="bg-white p-6 rounded-xl border border-gray-200 text-sm text-gray-600">Trang quản lý Khách hàng</div>} />
             </Route>

@@ -73,15 +73,15 @@ async def get_public_products(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
-    return PaginatedProductResponse(
-        items=items,
-        total_count=total_count,
-        total_pages=total_pages,
-        page=page,
-        page_size=page_size,
-        total=total_count,
-        limit=page_size
-    )
+    return {
+        "items": items,
+        "total_count": total_count,
+        "total_pages": total_pages,
+        "page": page,
+        "page_size": page_size,
+        "total": total_count,
+        "limit": page_size
+    }
 
 
 @router.get("/{product_id}", response_model=ProductResponse)

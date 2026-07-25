@@ -6,3 +6,12 @@ node_modules/
 documentations/
 backend/tests_output.log
 *.db
+
+# IDE and Android specific
+.idea/
+.gradle/
+*.iml
+local.properties
+build/
+/android-app/build/
+/android-app/app/build/

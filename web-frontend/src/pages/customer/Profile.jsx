@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../../hooks/useAuth';
 import userAPI from '../../api/userAPI';
 import AddressBook from './AddressBook';
+import VoucherWallet from './VoucherWallet';
 
 const Profile = () => {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
@@ -19,6 +20,8 @@ const Profile = () => {
   useEffect(() => {
     if (location.hash === '#addresses') {
       setActiveTab('addresses');
+    } else if (location.hash === '#vouchers') {
+      setActiveTab('vouchers');
     } else {
       setActiveTab('info');
     }
@@ -128,6 +131,21 @@ const Profile = () => {
                 <span className="text-lg">📍</span>
                 <span>Sổ địa chỉ</span>
               </button>
+              
+              <button
+                onClick={() => {
+                  setActiveTab('vouchers');
+                  navigate('/profile#vouchers');
+                }}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-xs sm:text-sm transition-all text-left whitespace-nowrap md:whitespace-normal ${
+                  activeTab === 'vouchers'
+                    ? 'bg-gradient-to-r from-red-600 to-orange-600 text-white shadow-md'
+                    : 'text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-lg">🎟️</span>
+                <span>Kho voucher</span>
+              </button>
             </div>
           </div>
 
@@ -193,6 +211,8 @@ const Profile = () => {
                   </div>
                 </form>
               </div>
+            ) : activeTab === 'vouchers' ? (
+              <VoucherWallet />
             ) : (
               <AddressBook />
             )}

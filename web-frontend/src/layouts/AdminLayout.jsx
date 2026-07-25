@@ -10,7 +10,8 @@ import {
   Users,
   Utensils,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  History
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import NotificationDropdown from '../components/common/NotificationDropdown';
@@ -40,7 +41,8 @@ const AdminLayout = () => {
     {
       title: 'BÁN HÀNG & GIAO VẬN',
       items: [
-        { name: 'Đơn đặt hàng (Orders)', path: '/admin/orders', icon: ShoppingBag },
+        { name: 'Đơn đang xử lý', path: '/admin/orders', icon: ShoppingBag },
+        { name: 'Lịch sử đơn hàng', path: '/admin/orders-history', icon: History },
         { name: 'Khách hàng & Thành viên', path: '/admin/users', icon: Users },
         { name: 'Khuyến mãi & Voucher', path: '/admin/vouchers', icon: Ticket },
       ]

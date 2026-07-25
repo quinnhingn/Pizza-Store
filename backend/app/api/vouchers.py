@@ -1,7 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import update, delete
@@ -353,27 +353,44 @@ async def save_voucher_to_wallet(
 
 @router.get("/my-saved-vouchers", response_model=List[UserVoucherResponse])
 async def get_my_saved_vouchers(
+    tab: str = Query("active", description="active or history"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Customer only: Get all unused and valid saved vouchers in personal wallet.
+    Customer only: Get saved vouchers in personal wallet.
+    Tab active: unused and valid vouchers.
+    Tab history: used or expired vouchers.
     """
     stmt = select(UserVoucher).where(
-        UserVoucher.user_id == current_user.id,
-        UserVoucher.is_used == False
+        UserVoucher.user_id == current_user.id
     ).order_by(UserVoucher.id.desc())
     result = await db.execute(stmt)
     saved_list = result.scalars().all()
 
-    # Populate voucher details and filter out inactive
-    valid_saved = []
+    active_list = []
+    history_list = []
+    from datetime import datetime
+    now_dt = datetime.now()
+
     for item in saved_list:
         v_stmt = select(Voucher).where(Voucher.code == item.voucher_code)
         v_res = await db.execute(v_stmt)
         v_obj = v_res.scalar_one_or_none()
-        if v_obj and v_obj.is_active:
-            item.voucher_details = VoucherResponse.model_validate(v_obj)
-            valid_saved.append(item)
+        
+        if not v_obj:
+            continue
+            
+        item.voucher_details = VoucherResponse.model_validate(v_obj)
+        
+        # Check if it's expired or used or inactive
+        is_expired = v_obj.end_date < now_dt if v_obj.end_date else False
+        
+        if item.is_used or is_expired or not v_obj.is_active:
+            history_list.append(item)
+        else:
+            active_list.append(item)
 
-    return valid_saved
+    if tab == "history":
+        return history_list
+    return active_list

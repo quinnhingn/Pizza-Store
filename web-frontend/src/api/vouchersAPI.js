@@ -43,8 +43,8 @@ const vouchersAPI = {
     });
   },
 
-  getMySavedVouchers: () => {
-    return axiosInstance.get('/vouchers/my-saved-vouchers');
+  getMySavedVouchers: (tab = 'active') => {
+    return axiosInstance.get(`/vouchers/my-saved-vouchers?tab=${tab}`);
   }
 };
 
