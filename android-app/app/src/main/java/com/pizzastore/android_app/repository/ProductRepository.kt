@@ -16,4 +16,15 @@ class ProductRepository(private val apiService: ProductApiService) {
             Result.failure(Exception(e.message ?: "Unknown error occurred"))
         }
     }
+    
+    suspend fun getProductById(id: Int): Result<com.pizzastore.android_app.network.Product> {
+        return try {
+            val response = apiService.getProductById(id)
+            Result.success(response)
+        } catch (e: HttpException) {
+            Result.failure(Exception("HTTP error: ${e.code()}"))
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Unknown error occurred"))
+        }
+    }
 }
