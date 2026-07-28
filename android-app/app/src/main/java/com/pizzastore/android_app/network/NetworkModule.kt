@@ -33,4 +33,12 @@ object NetworkModule {
             .addConverterFactory(GsonConverterFactory.create())
             .build()
     }
+    
+    fun provideCartApiService(retrofit: Retrofit): CartApiService {
+        return retrofit.create(CartApiService::class.java)
+    }
+    
+    fun provideOrderApiService(retrofit: Retrofit): OrderApiService {
+        return retrofit.create(OrderApiService::class.java)
+    }
 }

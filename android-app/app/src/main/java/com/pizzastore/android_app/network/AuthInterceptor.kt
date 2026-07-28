@@ -13,6 +13,12 @@ class AuthInterceptor(private val tokenManager: TokenManager) : Interceptor {
             requestBuilder.addHeader("Authorization", "Bearer $it")
         }
 
-        return chain.proceed(requestBuilder.build())
+        val response = chain.proceed(requestBuilder.build())
+        
+        if (response.code == 401) {
+            tokenManager.notifySessionExpired()
+        }
+        
+        return response
     }
 }
