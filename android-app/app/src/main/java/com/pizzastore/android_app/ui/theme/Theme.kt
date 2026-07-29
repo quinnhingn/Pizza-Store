@@ -12,29 +12,39 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PizzaRed,
-    secondary = PizzaOrange,
-    tertiary = PizzaGreen,
-    background = PizzaDark,
-    surface = PizzaDark,
-    onPrimary = PizzaSurface,
-    onSecondary = PizzaDark,
-    onTertiary = PizzaSurface,
-    onBackground = PizzaSurface,
-    onSurface = PizzaSurface
+    primary = Red600,
+    onPrimary = White,
+    primaryContainer = Red700,
+    onPrimaryContainer = White,
+    secondary = Orange500,
+    onSecondary = White,
+    tertiary = Green500,
+    onTertiary = White,
+    background = Slate800,
+    onBackground = Slate50,
+    surface = Slate800,
+    onSurface = Slate50,
+    surfaceVariant = Slate800,
+    onSurfaceVariant = Slate200,
+    outline = Slate500
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PizzaRed,
-    secondary = PizzaOrange,
-    tertiary = PizzaGreen,
-    background = PizzaBackground,
-    surface = PizzaSurface,
-    onPrimary = PizzaSurface,
-    onSecondary = PizzaSurface,
-    onTertiary = PizzaSurface,
-    onBackground = PizzaDark,
-    onSurface = PizzaDark
+    primary = Red600,
+    onPrimary = White,
+    primaryContainer = Red100,
+    onPrimaryContainer = Red700,
+    secondary = Orange500,
+    onSecondary = White,
+    tertiary = Green500,
+    onTertiary = White,
+    background = Slate100,
+    onBackground = Slate800,
+    surface = White,
+    onSurface = Slate800,
+    surfaceVariant = White,
+    onSurfaceVariant = Slate500,
+    outline = Slate200
 )
 
 @Composable
