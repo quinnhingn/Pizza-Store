@@ -7,24 +7,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
@@ -42,6 +30,10 @@ import com.pizzastore.android_app.ui.screens.LoginScreen
 import com.pizzastore.android_app.ui.screens.ProductDetailScreen
 import com.pizzastore.android_app.ui.screens.CartScreen
 import com.pizzastore.android_app.ui.screens.CheckoutScreen
+import com.pizzastore.android_app.ui.screens.ProfileScreen
+import com.pizzastore.android_app.ui.screens.AddressBookScreen
+import com.pizzastore.android_app.ui.screens.OrderHistoryScreen
+import com.pizzastore.android_app.ui.screens.VoucherWalletScreen
 import com.pizzastore.android_app.ui.theme.AndroidappTheme
 import com.pizzastore.android_app.utils.TokenManager
 import com.pizzastore.android_app.viewmodel.HomeViewModel
@@ -121,12 +113,7 @@ fun AppNavigation(
     initialRoute: String
 ) {
     val navController = rememberNavController()
-    val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route
     
-    val bottomBarRoutes = listOf("home", "cart", "profile")
-    val showBottomBar = currentRoute in bottomBarRoutes
-
     LaunchedEffect(Unit) {
         tokenManager.sessionExpired.collect {
             navController.navigate("login") {
@@ -137,43 +124,7 @@ fun AppNavigation(
     }
 
     Scaffold(
-        modifier = Modifier.fillMaxSize(),
-        bottomBar = {
-            if (showBottomBar) {
-                NavigationBar(
-                    containerColor = androidx.compose.material3.MaterialTheme.colorScheme.surface,
-                    tonalElevation = 8.dp
-                ) {
-                    val items = listOf(
-                        Triple("home", Icons.Default.Home, "Trang chủ"),
-                        Triple("cart", Icons.Default.ShoppingCart, "Giỏ hàng"),
-                        Triple("profile", Icons.Default.Person, "Tài khoản")
-                    )
-                    
-                    items.forEach { (route, icon, label) ->
-                        NavigationBarItem(
-                            icon = { Icon(icon, contentDescription = label) },
-                            label = { Text(label) },
-                            selected = currentRoute == route,
-                            onClick = {
-                                if (currentRoute != route) {
-                                    navController.navigate(route) {
-                                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
-                                    }
-                                }
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = androidx.compose.material3.MaterialTheme.colorScheme.primary,
-                                unselectedIconColor = androidx.compose.ui.graphics.Color.Gray,
-                                indicatorColor = androidx.compose.material3.MaterialTheme.colorScheme.surface
-                            )
-                        )
-                    }
-                }
-            }
-        }
+        modifier = Modifier.fillMaxSize()
     ) { innerPadding ->
         NavHost(
             navController = navController,
@@ -195,6 +146,12 @@ fun AppNavigation(
                     viewModel = homeViewModel,
                     onProductClick = { productId ->
                         navController.navigate("detail/$productId")
+                    },
+                    onCartClick = {
+                        navController.navigate("cart")
+                    },
+                    onProfileClick = {
+                        navController.navigate("profile")
                     }
                 )
             }
@@ -225,7 +182,8 @@ fun AppNavigation(
                         val voucherCode = cartViewModel.voucherCode.value
                         navController.currentBackStackEntry?.savedStateHandle?.set("voucherCode", voucherCode)
                         navController.navigate("checkout")
-                    }
+                    },
+                    onBackClick = { navController.popBackStack() }
                 )
             }
             composable("checkout") {
@@ -245,7 +203,28 @@ fun AppNavigation(
                 )
             }
             composable("profile") {
-                // To be implemented in Phase 6 updates
+                ProfileScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onLogoutClick = {
+                        tokenManager.clearToken()
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
+                    onAddressClick = { navController.navigate("address") },
+                    onOrdersClick = { navController.navigate("orders") },
+                    onVoucherClick = { navController.navigate("vouchers") }
+                )
+            }
+            composable("address") {
+                AddressBookScreen(onBackClick = { navController.popBackStack() })
+            }
+            composable("orders") {
+                OrderHistoryScreen(onBackClick = { navController.popBackStack() })
+            }
+            composable("vouchers") {
+                VoucherWalletScreen(onBackClick = { navController.popBackStack() })
             }
         }
     }
