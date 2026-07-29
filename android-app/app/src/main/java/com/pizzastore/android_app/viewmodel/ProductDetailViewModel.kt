@@ -25,7 +25,8 @@ sealed class ProductDetailState {
 class ProductDetailViewModel(
     private val repository: ProductRepository,
     private val cartRepository: CartRepository,
-    private val productId: Int
+    private val productId: Int,
+    private val cartItemId: Int? = null
 ) : ViewModel() {
     
     private val _state = MutableStateFlow<ProductDetailState>(ProductDetailState.Loading)
@@ -39,6 +40,11 @@ class ProductDetailViewModel(
 
     private val _quantity = MutableStateFlow(1)
     val quantity: StateFlow<Int> = _quantity
+    
+    private val _note = MutableStateFlow("")
+    val note: StateFlow<String> = _note
+    
+    val isEditing: Boolean = cartItemId != null
 
     val totalPrice: StateFlow<Double> = combine(
         _state, _selectedSize, _selectedToppings, _quantity
@@ -81,7 +87,33 @@ class ProductDetailViewModel(
                 val product = result.getOrNull()
                 if (product != null) {
                     _state.value = ProductDetailState.Success(product)
-                    // Auto-select the first size if available
+                    
+                    // If we're editing a cart item, fetch the cart and pre-fill data
+                    if (cartItemId != null) {
+                        val cartResult = cartRepository.getCart()
+                        if (cartResult.isSuccess) {
+                            val cartItem = cartResult.getOrNull()?.items?.find { it.id == cartItemId }
+                            if (cartItem != null) {
+                                _quantity.value = cartItem.quantity
+                                _note.value = cartItem.note ?: ""
+                                
+                                if (cartItem.size_name != null) {
+                                    val size = product.sizes.find { it.size_name == cartItem.size_name }
+                                    if (size != null) _selectedSize.value = size
+                                }
+                                
+                                if (!cartItem.toppings.isNullOrEmpty()) {
+                                    val selectedTops = cartItem.toppings.mapNotNull { ct ->
+                                        product.toppings.find { it.topping_name == ct.topping_name }
+                                    }.toSet()
+                                    _selectedToppings.value = selectedTops
+                                }
+                                return@launch // Done loading
+                            }
+                        }
+                    }
+                    
+                    // Auto-select the first size if available (for new items)
                     if (product.sizes.isNotEmpty()) {
                         _selectedSize.value = product.sizes.first()
                     }
@@ -92,6 +124,10 @@ class ProductDetailViewModel(
                 _state.value = ProductDetailState.Error(result.exceptionOrNull()?.message ?: "Failed to load product")
             }
         }
+    }
+    
+    fun updateNote(newNote: String) {
+        _note.value = newNote
     }
     
     fun selectSize(size: ProductSizeItem) {
@@ -125,22 +161,47 @@ class ProductDetailViewModel(
         viewModelScope.launch {
             _isAddingToCart.value = true
             
-            val request = CartItemCreateRequest(
-                product_id = productId,
-                size_name = _selectedSize.value?.size_name,
-                toppings = _selectedToppings.value.toList(),
-                quantity = _quantity.value,
-                note = null,
-                unit_price = currentState.product.price // Base price, backend might recompute or expect this
-            )
+            val noteValue = if (_note.value.trim().isEmpty()) "" else _note.value.trim()
+            val finalUnitPrice = totalPrice.value / _quantity.value
             
-            val result = cartRepository.addItemToCart(request)
-            _isAddingToCart.value = false
-            
-            if (result.isSuccess) {
-                _addToCartResult.value = true
+            if (cartItemId != null) {
+                // Update existing item
+                val request = com.pizzastore.android_app.network.CartItemUpdateRequest(
+                    quantity = _quantity.value,
+                    size_name = _selectedSize.value?.size_name,
+                    toppings = _selectedToppings.value.toList(),
+                    note = noteValue,
+                    unit_price = finalUnitPrice
+                )
+                val result = cartRepository.updateCartItem(cartItemId, request)
+                _isAddingToCart.value = false
+                
+                if (result.isSuccess) {
+                    _addToCartResult.value = true
+                    cartRepository.refreshCartCount()
+                } else {
+                    _addToCartResult.value = false
+                }
             } else {
-                _addToCartResult.value = false
+                // Add new item
+                val request = CartItemCreateRequest(
+                    product_id = productId,
+                    size_name = _selectedSize.value?.size_name,
+                    toppings = _selectedToppings.value.toList(),
+                    quantity = _quantity.value,
+                    note = if (noteValue.isEmpty()) null else noteValue,
+                    unit_price = finalUnitPrice
+                )
+                
+                val result = cartRepository.addItemToCart(request)
+                _isAddingToCart.value = false
+                
+                if (result.isSuccess) {
+                    _addToCartResult.value = true
+                    cartRepository.refreshCartCount()
+                } else {
+                    _addToCartResult.value = false
+                }
             }
         }
     }
@@ -153,12 +214,13 @@ class ProductDetailViewModel(
 class ProductDetailViewModelFactory(
     private val repository: ProductRepository,
     private val cartRepository: CartRepository,
-    private val productId: Int
+    private val productId: Int,
+    private val cartItemId: Int? = null
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProductDetailViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return ProductDetailViewModel(repository, cartRepository, productId) as T
+            return ProductDetailViewModel(repository, cartRepository, productId, cartItemId) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

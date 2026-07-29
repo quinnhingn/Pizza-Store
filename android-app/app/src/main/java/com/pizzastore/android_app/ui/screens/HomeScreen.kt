@@ -38,6 +38,7 @@ fun HomeScreen(
     onProfileClick: () -> Unit
 ) {
     val homeState by viewModel.homeState.collectAsState()
+    val cartItemCount by viewModel.cartItemCount.collectAsState()
     var selectedCategory by remember { mutableStateOf("Tất cả") }
     var searchQuery by remember { mutableStateOf("") }
     
@@ -149,12 +150,32 @@ fun HomeScreen(
                             .clickable { onCartClick() }
                     ) {
                         Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Default.ShoppingCart,
-                                contentDescription = "Giỏ hàng",
-                                modifier = Modifier.size(22.dp),
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
+                            if (cartItemCount > 0) {
+                                BadgedBox(
+                                    badge = {
+                                        Badge(
+                                            containerColor = MaterialTheme.colorScheme.error,
+                                            contentColor = Color.White
+                                        ) {
+                                            Text(if (cartItemCount > 99) "99+" else cartItemCount.toString())
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ShoppingCart,
+                                        contentDescription = "Giỏ hàng",
+                                        modifier = Modifier.size(22.dp),
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.ShoppingCart,
+                                    contentDescription = "Giỏ hàng",
+                                    modifier = Modifier.size(22.dp),
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
                         }
                     }
                 }

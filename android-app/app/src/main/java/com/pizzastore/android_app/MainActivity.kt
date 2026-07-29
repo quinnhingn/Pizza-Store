@@ -21,10 +21,12 @@ import com.pizzastore.android_app.network.NetworkModule
 import com.pizzastore.android_app.network.ProductApiService
 import com.pizzastore.android_app.network.CartApiService
 import com.pizzastore.android_app.network.OrderApiService
+import com.pizzastore.android_app.network.VoucherApiService
 import com.pizzastore.android_app.repository.AuthRepository
 import com.pizzastore.android_app.repository.ProductRepository
 import com.pizzastore.android_app.repository.CartRepository
 import com.pizzastore.android_app.repository.OrderRepository
+import com.pizzastore.android_app.repository.VoucherRepository
 import com.pizzastore.android_app.ui.screens.HomeScreen
 import com.pizzastore.android_app.ui.screens.LoginScreen
 import com.pizzastore.android_app.ui.screens.ProductDetailScreen
@@ -56,13 +58,14 @@ class MainActivity : ComponentActivity() {
     private lateinit var productRepository: ProductRepository
     private lateinit var cartRepository: CartRepository
     private lateinit var orderRepository: OrderRepository
+    private lateinit var voucherRepository: VoucherRepository
     
     private val loginViewModel: LoginViewModel by viewModels {
         LoginViewModelFactory(authRepository)
     }
     
     private val homeViewModel: HomeViewModel by viewModels {
-        HomeViewModelFactory(productRepository)
+        HomeViewModelFactory(productRepository, cartRepository)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,6 +88,9 @@ class MainActivity : ComponentActivity() {
         val orderApiService = retrofit.create(OrderApiService::class.java)
         orderRepository = OrderRepository(orderApiService)
 
+        val voucherApiService = retrofit.create(VoucherApiService::class.java)
+        voucherRepository = VoucherRepository(voucherApiService)
+
         enableEdgeToEdge()
         setContent {
             AndroidappTheme {
@@ -94,6 +100,7 @@ class MainActivity : ComponentActivity() {
                     productRepository = productRepository,
                     cartRepository = cartRepository,
                     orderRepository = orderRepository,
+                    voucherRepository = voucherRepository,
                     tokenManager = tokenManager,
                     initialRoute = if (tokenManager.getToken() != null) "home" else "login"
                 )
@@ -109,6 +116,7 @@ fun AppNavigation(
     productRepository: ProductRepository,
     cartRepository: CartRepository,
     orderRepository: OrderRepository,
+    voucherRepository: VoucherRepository,
     tokenManager: TokenManager,
     initialRoute: String
 ) {
@@ -174,7 +182,7 @@ fun AppNavigation(
             }
             composable("cart") {
                 val cartViewModel: CartViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = CartViewModelFactory(cartRepository, orderRepository)
+                    factory = CartViewModelFactory(cartRepository, orderRepository, voucherRepository)
                 )
                 CartScreen(
                     viewModel = cartViewModel,
@@ -183,6 +191,28 @@ fun AppNavigation(
                         navController.currentBackStackEntry?.savedStateHandle?.set("voucherCode", voucherCode)
                         navController.navigate("checkout")
                     },
+                    onBackClick = { navController.popBackStack() },
+                    onEditClick = { cartItemId, productId ->
+                        navController.navigate("cart_edit/$cartItemId/$productId")
+                    }
+                )
+            }
+            composable(
+                route = "cart_edit/{cartItemId}/{productId}",
+                arguments = listOf(
+                    navArgument("cartItemId") { type = NavType.IntType },
+                    navArgument("productId") { type = NavType.IntType }
+                )
+            ) { backStackEntry ->
+                val cartItemId = backStackEntry.arguments?.getInt("cartItemId") ?: return@composable
+                val productId = backStackEntry.arguments?.getInt("productId") ?: return@composable
+                
+                val detailViewModel: ProductDetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = ProductDetailViewModelFactory(productRepository, cartRepository, productId, cartItemId)
+                )
+                
+                ProductDetailScreen(
+                    viewModel = detailViewModel,
                     onBackClick = { navController.popBackStack() }
                 )
             }

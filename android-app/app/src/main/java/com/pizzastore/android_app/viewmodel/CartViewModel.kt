@@ -8,6 +8,7 @@ import com.pizzastore.android_app.network.CartItemUpdateRequest
 import com.pizzastore.android_app.network.VoucherResponse
 import com.pizzastore.android_app.repository.CartRepository
 import com.pizzastore.android_app.repository.OrderRepository
+import com.pizzastore.android_app.repository.VoucherRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -24,7 +25,8 @@ sealed class CartState {
 
 class CartViewModel(
     private val cartRepository: CartRepository,
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val voucherRepository: VoucherRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<CartState>(CartState.Loading)
@@ -39,8 +41,18 @@ class CartViewModel(
     private val _voucherMessage = MutableStateFlow<String?>(null)
     val voucherMessage: StateFlow<String?> = _voucherMessage
 
+    private val _vouchers = MutableStateFlow<List<VoucherResponse>>(emptyList())
+    val vouchers: StateFlow<List<VoucherResponse>> = _vouchers
+
     init {
         loadCart()
+        loadVouchers()
+        
+        viewModelScope.launch {
+            cartRepository.cartUpdatedEvent.collect {
+                loadCart()
+            }
+        }
     }
 
     fun loadCart() {
@@ -58,6 +70,15 @@ class CartViewModel(
                 }
             } else {
                 _state.value = CartState.Error(result.exceptionOrNull()?.message ?: "Unknown error")
+            }
+        }
+    }
+
+    private fun loadVouchers() {
+        viewModelScope.launch {
+            val result = voucherRepository.getActiveVouchers()
+            if (result.isSuccess) {
+                _vouchers.value = result.getOrNull() ?: emptyList()
             }
         }
     }
@@ -128,12 +149,13 @@ class CartViewModel(
 
 class CartViewModelFactory(
     private val cartRepository: CartRepository,
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val voucherRepository: VoucherRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CartViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return CartViewModel(cartRepository, orderRepository) as T
+            return CartViewModel(cartRepository, orderRepository, voucherRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

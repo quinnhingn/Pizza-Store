@@ -46,15 +46,14 @@ fun ProductDetailScreen(
     val totalPrice by viewModel.totalPrice.collectAsState()
     val isAddingToCart by viewModel.isAddingToCart.collectAsState()
     val addToCartResult by viewModel.addToCartResult.collectAsState()
-    
-    // Note state (UI only, as requested not to change ViewModel)
-    var noteText by remember { mutableStateOf("") }
+    val noteText by viewModel.note.collectAsState()
     
     val context = LocalContext.current
 
     LaunchedEffect(addToCartResult) {
         if (addToCartResult == true) {
-            Toast.makeText(context, "Thêm vào giỏ hàng thành công", Toast.LENGTH_SHORT).show()
+            val msg = if (viewModel.isEditing) "Cập nhật giỏ hàng thành công" else "Thêm vào giỏ hàng thành công"
+            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
             viewModel.resetAddToCartResult()
             onBackClick()
         } else if (addToCartResult == false) {
@@ -114,7 +113,7 @@ fun ProductDetailScreen(
                                 )
                             } else {
                                 Text(
-                                    "Thêm vào giỏ", 
+                                    text = if (viewModel.isEditing) "Cập nhật giỏ hàng" else "Thêm vào giỏ", 
                                     style = MaterialTheme.typography.titleMedium, 
                                     fontWeight = FontWeight.Bold
                                 )
@@ -365,7 +364,7 @@ fun ProductDetailScreen(
                                 Spacer(modifier = Modifier.height(12.dp))
                                 OutlinedTextField(
                                     value = noteText,
-                                    onValueChange = { noteText = it },
+                                    onValueChange = { viewModel.updateNote(it) },
                                     placeholder = { Text("Ví dụ: Ít đá, không hành...") },
                                     modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(12.dp),

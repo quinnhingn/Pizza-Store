@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pizzastore.android_app.network.Product
 import com.pizzastore.android_app.repository.ProductRepository
+import com.pizzastore.android_app.repository.CartRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -15,9 +16,14 @@ sealed class HomeState {
     data class Error(val message: String) : HomeState()
 }
 
-class HomeViewModel(private val repository: ProductRepository) : ViewModel() {
+class HomeViewModel(
+    private val repository: ProductRepository,
+    private val cartRepository: CartRepository
+) : ViewModel() {
     private val _homeState = MutableStateFlow<HomeState>(HomeState.Loading)
     val homeState: StateFlow<HomeState> = _homeState
+    
+    val cartItemCount: StateFlow<Int> = cartRepository.cartItemCount
     
     init {
         loadProducts()
@@ -36,11 +42,14 @@ class HomeViewModel(private val repository: ProductRepository) : ViewModel() {
     }
 }
 
-class HomeViewModelFactory(private val repository: ProductRepository) : ViewModelProvider.Factory {
+class HomeViewModelFactory(
+    private val repository: ProductRepository,
+    private val cartRepository: CartRepository
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(repository) as T
+            return HomeViewModel(repository, cartRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
