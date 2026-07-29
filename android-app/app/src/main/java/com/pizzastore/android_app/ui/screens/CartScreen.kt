@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
@@ -29,7 +30,8 @@ import com.pizzastore.android_app.viewmodel.CartViewModel
 @Composable
 fun CartScreen(
     viewModel: CartViewModel,
-    onCheckoutClick: () -> Unit
+    onCheckoutClick: () -> Unit,
+    onBackClick: () -> Unit
 ) {
     val state by viewModel.state.collectAsState()
     val voucherCode by viewModel.voucherCode.collectAsState()
@@ -40,6 +42,11 @@ fun CartScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Giỏ hàng của bạn", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background
                 )
@@ -73,13 +80,13 @@ fun CartScreen(
                                 Icons.Default.ShoppingCart,
                                 contentDescription = "Empty Cart",
                                 modifier = Modifier.size(80.dp),
-                                tint = Color.LightGray
+                                tint = MaterialTheme.colorScheme.outlineVariant
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 "Giỏ hàng đang trống",
                                 style = MaterialTheme.typography.titleLarge,
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     } else {
@@ -102,7 +109,7 @@ fun CartScreen(
                             // Summary Section
                             Surface(
                                 color = MaterialTheme.colorScheme.surface,
-                                shadowElevation = 16.dp,
+                                shadowElevation = 4.dp,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Column(modifier = Modifier.padding(16.dp)) {
@@ -131,7 +138,7 @@ fun CartScreen(
                                     if (!voucherMessage.isNullOrEmpty()) {
                                         Text(
                                             text = voucherMessage!!,
-                                            color = if (discountAmount > 0) Color(0xFF4CAF50) else MaterialTheme.colorScheme.error,
+                                            color = if (discountAmount > 0) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
                                             style = MaterialTheme.typography.bodySmall,
                                             modifier = Modifier.padding(top = 4.dp, start = 4.dp)
                                         )
@@ -146,23 +153,23 @@ fun CartScreen(
                                     if (total < 0) total = 0.0
 
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text("Tạm tính", color = Color.Gray)
+                                        Text("Tạm tính", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text("${String.format("%,.0f", subtotal)} ₫", fontWeight = FontWeight.Bold)
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                        Text("Phí giao hàng", color = Color.Gray)
+                                        Text("Phí giao hàng", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                         Text("${String.format("%,.0f", shippingFee)} ₫", fontWeight = FontWeight.Bold)
                                     }
                                     if (discountAmount > 0) {
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                            Text("Giảm giá", color = Color.Gray)
-                                            Text("-${String.format("%,.0f", discountAmount)} ₫", fontWeight = FontWeight.Bold, color = Color(0xFF4CAF50))
+                                            Text("Giảm giá", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                            Text("-${String.format("%,.0f", discountAmount)} ₫", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.tertiary)
                                         }
                                     }
                                     
-                                    Divider(modifier = Modifier.padding(vertical = 12.dp))
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                                     
                                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                         Text("Tổng cộng", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -173,10 +180,13 @@ fun CartScreen(
                                     
                                     Button(
                                         onClick = onCheckoutClick,
-                                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                                        shape = RoundedCornerShape(25.dp)
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(56.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                                     ) {
-                                        Text("Tiến hành thanh toán", style = MaterialTheme.typography.titleMedium)
+                                        Text("Tiến hành thanh toán", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                     }
                                     Spacer(modifier = Modifier.height(16.dp))
                                 }
@@ -200,7 +210,8 @@ fun CartItemCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 8.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -240,7 +251,7 @@ fun CartItemCard(
                     Text(
                         text = details,
                         style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2
                     )
                 }
@@ -263,14 +274,14 @@ fun CartItemCard(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .clip(RoundedCornerShape(16.dp))
-                            .background(MaterialTheme.colorScheme.background)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                     ) {
                         TextButton(onClick = onDecrease, modifier = Modifier.size(32.dp), contentPadding = PaddingValues(0.dp)) {
-                            Text("-", fontSize = 16.sp)
+                            Text("-", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         }
-                        Text("${item.quantity}", modifier = Modifier.padding(horizontal = 4.dp))
+                        Text("${item.quantity}", modifier = Modifier.padding(horizontal = 4.dp), fontWeight = FontWeight.Bold)
                         TextButton(onClick = onIncrease, modifier = Modifier.size(32.dp), contentPadding = PaddingValues(0.dp)) {
-                            Text("+", fontSize = 16.sp)
+                            Text("+", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         }
                     }
                 }

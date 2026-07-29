@@ -1,22 +1,22 @@
 package com.pizzastore.android_app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +47,9 @@ fun ProductDetailScreen(
     val isAddingToCart by viewModel.isAddingToCart.collectAsState()
     val addToCartResult by viewModel.addToCartResult.collectAsState()
     
+    // Note state (UI only, as requested not to change ViewModel)
+    var noteText by remember { mutableStateOf("") }
+    
     val context = LocalContext.current
 
     LaunchedEffect(addToCartResult) {
@@ -61,23 +64,8 @@ fun ProductDetailScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
-            )
-        },
         bottomBar = {
             if (state is ProductDetailState.Success) {
-                val product = (state as ProductDetailState.Success).product
-                
                 Surface(
                     color = MaterialTheme.colorScheme.surface,
                     shadowElevation = 16.dp,
@@ -86,33 +74,25 @@ fun ProductDetailScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(horizontal = 20.dp, vertical = 16.dp)
                             .navigationBarsPadding(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // Quantity Selector
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
-                            TextButton(onClick = { viewModel.decreaseQuantity() }, modifier = Modifier.size(36.dp), contentPadding = PaddingValues(0.dp)) {
-                                Text("-", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
-                            }
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = quantity.toString(),
-                                style = MaterialTheme.typography.titleMedium,
-                                modifier = Modifier.padding(horizontal = 8.dp)
+                                text = "Tổng tiền",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                            TextButton(onClick = { viewModel.increaseQuantity() }, modifier = Modifier.size(36.dp), contentPadding = PaddingValues(0.dp)) {
-                                Text("+", fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurface)
-                            }
+                            Text(
+                                text = "${String.format("%,.0f", totalPrice)}đ",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                         
-                        // Add to Cart Button
                         Button(
                             onClick = { 
                                 if (!isAddingToCart) {
@@ -120,10 +100,10 @@ fun ProductDetailScreen(
                                 }
                             },
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(start = 16.dp)
-                                .height(50.dp),
-                            shape = RoundedCornerShape(24.dp),
+                                .weight(1.5f)
+                                .height(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                             enabled = !isAddingToCart
                         ) {
                             if (isAddingToCart) {
@@ -133,7 +113,11 @@ fun ProductDetailScreen(
                                     strokeWidth = 2.dp
                                 )
                             } else {
-                                Text("Thêm - ${String.format("%,.0f ₫", totalPrice)}", style = MaterialTheme.typography.titleMedium)
+                                Text(
+                                    "Thêm vào giỏ", 
+                                    style = MaterialTheme.typography.titleMedium, 
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
@@ -141,7 +125,7 @@ fun ProductDetailScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background)) {
             when (val currentState = state) {
                 is ProductDetailState.Loading -> {
                     CircularProgressIndicator(
@@ -151,7 +135,7 @@ fun ProductDetailScreen(
                 }
                 is ProductDetailState.Error -> {
                     Column(
-                        modifier = Modifier.align(Alignment.Center),
+                        modifier = Modifier.align(Alignment.Center).padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Icon(Icons.Default.Warning, contentDescription = "Error", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
@@ -166,126 +150,282 @@ fun ProductDetailScreen(
                 }
                 is ProductDetailState.Success -> {
                     val product = currentState.product
+                    val basePrice = product.price
+                    val unitPrice = selectedSize?.let { (basePrice * it.price_multiplier) + it.extra_price } ?: basePrice
+
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
                     ) {
                         // Product Image
-                        val imageUrl = if (product.image_url.isNullOrEmpty()) null 
-                            else if (product.image_url.startsWith("http")) product.image_url 
-                            else "http://10.0.2.2:8000/${product.image_url.removePrefix("/")}"
+                        Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
+                            val imageUrl = if (product.image_url.isNullOrEmpty()) null 
+                                else if (product.image_url.startsWith("http")) product.image_url 
+                                else "http://10.0.2.2:8000/${product.image_url.removePrefix("/")}"
 
-                        Box(
-                            modifier = Modifier.fillMaxWidth().height(250.dp).padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
                             AsyncImage(
                                 model = imageUrl,
                                 contentDescription = product.name,
-                                modifier = Modifier.size(220.dp).clip(CircleShape),
+                                modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Crop
                             )
+
+                            // Top Bar Over Image
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color.White.copy(alpha = 0.9f),
+                                    modifier = Modifier.size(40.dp).clickable { onBackClick() }
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black)
+                                    }
+                                }
+                            }
                         }
 
-                        // Product Info
-                        Column(modifier = Modifier.padding(horizontal = 24.dp)) {
-                            Text(
-                                text = product.name,
-                                style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Product Details Card (Overlapping image slightly for a modern look)
+                        Surface(
+                            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                            color = MaterialTheme.colorScheme.background,
+                            modifier = Modifier.fillMaxWidth().offset(y = (-20).dp)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                // Title and Price
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.Top
+                                ) {
+                                    Text(
+                                        text = product.name,
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Text(
+                                        text = "${String.format("%,.0f", unitPrice)}đ",
+                                        style = MaterialTheme.typography.headlineSmall,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        fontWeight = FontWeight.ExtraBold
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                
+                                // Rating
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Star, contentDescription = "Rating", tint = Color(0xFFFFC107), modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(text = "4.8", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                                    Text(text = " (120+ đánh giá)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
+
+                                Spacer(modifier = Modifier.height(16.dp))
+
+                                // Description
                                 Text(
-                                    text = String.format("%,.0f ₫", product.price),
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    text = product.description ?: "Món ăn thơm ngon, hấp dẫn.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    lineHeight = 22.sp
+                                )
+
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                                // Sizes Section
+                                if (product.sizes.isNotEmpty()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = "Chọn kích cỡ",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Surface(
+                                            color = MaterialTheme.colorScheme.errorContainer,
+                                            shape = RoundedCornerShape(4.dp)
+                                        ) {
+                                            Text(
+                                                text = "Bắt buộc",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onErrorContainer,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    ) {
+                                        items(product.sizes) { size ->
+                                            val isSelected = selectedSize?.id == size.id
+                                            val sizePrice = (basePrice * size.price_multiplier) + size.extra_price
+
+                                            Surface(
+                                                shape = RoundedCornerShape(12.dp),
+                                                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+                                                border = if (!isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
+                                                modifier = Modifier
+                                                    .width(110.dp)
+                                                    .clickable { viewModel.selectSize(size) }
+                                            ) {
+                                                Column(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    Text(
+                                                        text = size.size_name,
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                    Spacer(modifier = Modifier.height(4.dp))
+                                                    Text(
+                                                        text = "${String.format("%,.0f", sizePrice)}đ",
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                }
+
+                                // Toppings Section
+                                if (product.toppings.isNotEmpty()) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                                        Text(
+                                            text = "Thêm Topping",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = "Chọn nhiều",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                                        product.toppings.forEach { topping ->
+                                            val isSelected = selectedToppings.contains(topping)
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable { viewModel.toggleTopping(topping) }
+                                                    .padding(vertical = 8.dp),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.SpaceBetween
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Checkbox(
+                                                        checked = isSelected,
+                                                        onCheckedChange = { viewModel.toggleTopping(topping) },
+                                                        colors = CheckboxDefaults.colors(checkedColor = MaterialTheme.colorScheme.primary)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(8.dp))
+                                                    Text(
+                                                        text = topping.topping_name,
+                                                        style = MaterialTheme.typography.bodyLarge,
+                                                        color = MaterialTheme.colorScheme.onSurface
+                                                    )
+                                                }
+                                                Text(
+                                                    text = "+${String.format("%,.0f", topping.extra_price)}đ",
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    fontWeight = FontWeight.Medium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
+                                        }
+                                    }
+                                    HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                }
+
+                                // Note Section
+                                Text(
+                                    text = "Ghi chú cho quán",
+                                    style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Icon(Icons.Default.Star, contentDescription = "Rating", tint = Color(0xFFFFC107), modifier = Modifier.size(20.dp))
-                                Text(text = " 4.8 (120+)", style = MaterialTheme.typography.bodyMedium, color = Color.Gray)
-                            }
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(text = "Chi tiết", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = product.description ?: "Một chiếc bánh pizza thơm ngon đang chờ bạn thưởng thức.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                OutlinedTextField(
+                                    value = noteText,
+                                    onValueChange = { noteText = it },
+                                    placeholder = { Text("Ví dụ: Ít đá, không hành...") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                                    ),
+                                    maxLines = 3
+                                )
 
-                            // Sizes
-                            if (product.sizes.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Text(text = "Chọn Size", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                product.sizes.forEach { size ->
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                                // Quantity Selector
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "Số lượng",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { viewModel.selectSize(size) }
-                                            .padding(vertical = 4.dp)
+                                            .clip(RoundedCornerShape(50))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                            .padding(horizontal = 4.dp, vertical = 4.dp)
                                     ) {
-                                        RadioButton(
-                                            selected = selectedSize?.id == size.id,
-                                            onClick = { viewModel.selectSize(size) }
-                                        )
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = if (quantity > 1) MaterialTheme.colorScheme.surface else Color.Transparent,
+                                            modifier = Modifier.size(36.dp).clickable(enabled = quantity > 1) { viewModel.decreaseQuantity() },
+                                            shadowElevation = if (quantity > 1) 2.dp else 0.dp
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text("-", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                            }
+                                        }
                                         Text(
-                                            text = size.size_name,
-                                            modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                            style = MaterialTheme.typography.bodyLarge
+                                            text = quantity.toString(),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 20.dp)
                                         )
-                                        if (size.extra_price > 0) {
-                                            Text(
-                                                text = "+${String.format("%,.0f", size.extra_price)} ₫",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = Color.Gray
-                                            )
+                                        Surface(
+                                            shape = CircleShape,
+                                            color = MaterialTheme.colorScheme.surface,
+                                            modifier = Modifier.size(36.dp).clickable { viewModel.increaseQuantity() },
+                                            shadowElevation = 2.dp
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text("+", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                            }
                                         }
                                     }
                                 }
-                            }
 
-                            // Toppings
-                            if (product.toppings.isNotEmpty()) {
-                                Spacer(modifier = Modifier.height(24.dp))
-                                Text(text = "Thêm Topping", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Spacer(modifier = Modifier.height(8.dp))
-                                product.toppings.forEach { topping ->
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { viewModel.toggleTopping(topping) }
-                                            .padding(vertical = 4.dp)
-                                    ) {
-                                        Checkbox(
-                                            checked = selectedToppings.contains(topping),
-                                            onCheckedChange = { viewModel.toggleTopping(topping) }
-                                        )
-                                        Text(
-                                            text = topping.topping_name,
-                                            modifier = Modifier.weight(1f).padding(start = 8.dp),
-                                            style = MaterialTheme.typography.bodyLarge
-                                        )
-                                        if (topping.extra_price > 0) {
-                                            Text(
-                                                text = "+${String.format("%,.0f", topping.extra_price)} ₫",
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                color = Color.Gray
-                                            )
-                                        }
-                                    }
-                                }
+                                Spacer(modifier = Modifier.height(40.dp))
                             }
-                            
-                            // Padding at the bottom for the fixed BottomBar
-                            Spacer(modifier = Modifier.height(32.dp))
                         }
                     }
                 }

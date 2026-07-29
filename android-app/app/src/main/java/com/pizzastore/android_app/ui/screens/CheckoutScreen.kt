@@ -6,7 +6,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -56,7 +56,7 @@ fun CheckoutScreen(
                 Icons.Default.CheckCircle,
                 contentDescription = "Success",
                 modifier = Modifier.size(100.dp),
-                tint = Color(0xFF4CAF50)
+                tint = MaterialTheme.colorScheme.tertiary
             )
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -68,13 +68,13 @@ fun CheckoutScreen(
             Text(
                 "Mã đơn hàng: ${(state as CheckoutState.Success).orderCode}",
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(32.dp))
             Button(
                 onClick = onCheckoutSuccess,
-                modifier = Modifier.fillMaxWidth().height(50.dp),
-                shape = RoundedCornerShape(25.dp)
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Text("Về trang chủ", style = MaterialTheme.typography.titleMedium)
             }
@@ -88,7 +88,7 @@ fun CheckoutScreen(
                 title = { Text("Thanh toán", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -108,8 +108,8 @@ fun CheckoutScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                         .navigationBarsPadding()
-                        .height(50.dp),
-                    shape = RoundedCornerShape(25.dp),
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
                     enabled = state !is CheckoutState.Loading
                 ) {
                     if (state is CheckoutState.Loading) {
