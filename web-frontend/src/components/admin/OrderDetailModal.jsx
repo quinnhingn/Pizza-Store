@@ -144,43 +144,6 @@ const OrderDetailModal = ({ isOpen, order, onClose, onActionClick, hideActions =
             </div>
           )}
 
-          {/* Action Banner inside Detail Modal (Hide if hideActions is true or if completed/cancelled) */}
-          {!hideActions && order.status !== 'completed' && order.status !== 'cancelled' && (
-            <div className="p-4 rounded-2xl bg-white border border-gray-200 flex items-center justify-between gap-4 shadow-xs">
-              <div>
-                <span className="font-bold text-gray-900 block text-xs uppercase tracking-wider">Cập nhật tiến độ tiếp theo</span>
-                <p className="text-xs text-gray-500 mt-0.5">Chuyển sang bước kế tiếp sau khi hoàn tất chế biến/giao bánh.</p>
-              </div>
-              <div className="flex gap-2">
-                {STATUS_MAP[order.status]?.nextStatus && (
-                  order.status === 'shipping' && !order.customer_confirmed ? (
-                    <button
-                      disabled
-                      title="Khách hàng chưa bấm 'Đã nhận hàng' trên ứng dụng"
-                      className="px-4 py-2 font-bold rounded-xl text-xs bg-gray-200 text-gray-500 cursor-not-allowed border border-gray-300 flex items-center gap-1.5"
-                    >
-                      🔒 Chờ khách nhận hàng
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onActionClick(STATUS_MAP[order.status].nextStatus, STATUS_MAP[order.status].nextLabel)}
-                      className={`px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm ${STATUS_MAP[order.status].nextBtnClass} cursor-pointer`}
-                    >
-                      {STATUS_MAP[order.status].nextLabel}
-                    </button>
-                  )
-                )}
-                {order.status === 'pending' && (
-                  <button
-                    onClick={() => onActionClick('cancelled', 'Hủy đơn')}
-                    className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl text-xs transition border border-rose-200 cursor-pointer"
-                  >
-                    Hủy đơn
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
 
           {/* Shipping & Customer Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -265,13 +228,44 @@ const OrderDetailModal = ({ isOpen, order, onClose, onActionClick, hideActions =
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition text-sm shadow-sm cursor-pointer"
-          >
-            Đóng
-          </button>
+        <div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3">
+          {!hideActions && order.status !== 'completed' && order.status !== 'cancelled' ? (
+            <>
+              {order.status === 'pending' && (
+                <button
+                  onClick={() => onActionClick('cancelled', 'Hủy đơn')}
+                  className="px-6 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-xl transition text-sm shadow-sm cursor-pointer border border-rose-200"
+                >
+                  Hủy đơn
+                </button>
+              )}
+              {STATUS_MAP[order.status]?.nextStatus && (
+                order.status === 'shipping' && !order.customer_confirmed ? (
+                  <button
+                    disabled
+                    title="Khách hàng chưa bấm 'Đã nhận hàng' trên ứng dụng"
+                    className="px-6 py-2.5 font-bold rounded-xl text-sm bg-gray-200 text-gray-500 cursor-not-allowed border border-gray-300 flex items-center gap-1.5"
+                  >
+                    🔒 Chờ khách nhận hàng
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => onActionClick(STATUS_MAP[order.status].nextStatus, STATUS_MAP[order.status].nextLabel)}
+                    className={`px-6 py-2.5 rounded-xl text-sm font-bold transition shadow-sm ${STATUS_MAP[order.status].nextBtnClass} cursor-pointer`}
+                  >
+                    {STATUS_MAP[order.status].nextLabel}
+                  </button>
+                )
+              )}
+            </>
+          ) : (
+            <button
+              onClick={onClose}
+              className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-xl transition text-sm shadow-sm cursor-pointer"
+            >
+              Đóng
+            </button>
+          )}
         </div>
       </div>
     </div>

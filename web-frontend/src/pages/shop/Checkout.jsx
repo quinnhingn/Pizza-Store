@@ -41,8 +41,13 @@ const Checkout = () => {
   // Submit states
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [showGuestNoticeModal, setShowGuestNoticeModal] = useState(false);
   const [createdOrder, setCreatedOrder] = useState(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/cart');
+    }
+  }, [isAuthenticated, navigate]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -139,12 +144,6 @@ const Checkout = () => {
     // Validate cart not empty
     if (!cartItems || cartItems.length === 0) {
       setErrorMessage('Giỏ hàng đang trống, không thể đặt hàng.');
-      return;
-    }
-
-    // Check authentication requirement
-    if (!isAuthenticated) {
-      setShowGuestNoticeModal(true);
       return;
     }
 
@@ -643,37 +642,7 @@ const Checkout = () => {
           appliedVoucherCode={appliedVoucher?.code}
         />
 
-        {/* Guest Notice Modal */}
-        {showGuestNoticeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 animate-fade-in">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6 shadow-2xl border border-gray-100 space-y-4 text-center">
-              <h3 className="text-lg font-black text-gray-900">Đăng nhập để đặt hàng</h3>
-              <p className="text-sm text-gray-600 leading-relaxed">
-                Để bảo mật ưu đãi voucher, tích điểm và giúp bạn tra cứu tiến độ đơn hàng chính xác, vui lòng đăng nhập tài khoản trước khi hoàn tất đơn!
-              </p>
-              <div className="flex flex-col gap-2.5 pt-2">
-                <button
-                  onClick={() => navigate('/login')}
-                  className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition-all shadow-sm"
-                >
-                  Đăng nhập ngay
-                </button>
-                <button
-                  onClick={() => navigate('/register')}
-                  className="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold rounded-xl text-sm transition-all"
-                >
-                  Đăng ký tài khoản mới
-                </button>
-                <button
-                  onClick={() => setShowGuestNoticeModal(false)}
-                  className="w-full py-2 text-xs font-semibold text-gray-500 hover:text-gray-800 transition-colors"
-                >
-                  Quay lại kiểm tra
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
 
         {/* Order Success Modal */}
         {createdOrder && (

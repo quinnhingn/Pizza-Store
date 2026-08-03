@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import ordersAPI from '../../api/ordersAPI';
 import useAuth from '../../hooks/useAuth';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 
 const STATUS_MAP = {
   pending: { label: 'Chờ xác nhận', badgeClass: 'bg-amber-50 text-amber-700 border border-amber-200' },
@@ -28,6 +29,7 @@ const OrderHistory = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const { isAuthenticated } = useAuth();
+  const { latestMessage } = useWebSocket() || {};
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,9 +40,15 @@ const OrderHistory = () => {
     fetchMyOrders();
   }, [isAuthenticated, navigate]);
 
-  const fetchMyOrders = async () => {
+  useEffect(() => {
+    if (latestMessage && (latestMessage.type === 'order_status_update' || latestMessage.type === 'new_order')) {
+      fetchMyOrders(true);
+    }
+  }, [latestMessage]);
+
+  const fetchMyOrders = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await ordersAPI.getMyOrders();
       const list = Array.isArray(res) ? res : (res.data || []);
       setOrders(list);

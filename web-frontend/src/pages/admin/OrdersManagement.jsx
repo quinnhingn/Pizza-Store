@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ordersAPI from '../../api/ordersAPI';
 import { RefreshCw, Search, X } from 'lucide-react';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 import OrderDetailModal from '../../components/admin/OrderDetailModal';
 
 const STATUS_MAP = {
@@ -69,14 +70,22 @@ const OrdersManagement = () => {
     customReason: ''
   });
   const [updating, setUpdating] = useState(false);
+  
+  const { latestMessage } = useWebSocket() || {};
 
   useEffect(() => {
     fetchOrders();
   }, []);
 
-  const fetchOrders = async () => {
+  useEffect(() => {
+    if (latestMessage && (latestMessage.type === 'new_order' || latestMessage.type === 'order_update')) {
+      fetchOrders(true);
+    }
+  }, [latestMessage]);
+
+  const fetchOrders = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const res = await ordersAPI.getAllOrdersAdmin();
       const list = Array.isArray(res) ? res : (res.data || []);
       setOrders(list);
@@ -325,42 +334,44 @@ const OrdersManagement = () => {
                           </div>
 
                           <div className="pt-2.5 border-t border-gray-100 flex items-center justify-between gap-2">
-                            <button
-                              onClick={() => setSelectedOrder(order)}
-                              className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition cursor-pointer"
-                            >
-                              Chi tiết
-                            </button>
-                            
-                            <div className="flex items-center gap-1.5">
-                              {statusInfo.nextStatus && (
-                                order.status === 'shipping' && !order.customer_confirmed ? (
-                                  <button
-                                    disabled
-                                    title="Khách hàng chưa bấm 'Đã nhận hàng' trên ứng dụng"
-                                    className="px-3 py-1.5 font-bold rounded-lg text-xs bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
-                                  >
-                                    🔒 Chờ khách
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={() => openConfirmModal(order, statusInfo.nextStatus, statusInfo.nextLabel)}
-                                    className={`px-3 py-1.5 font-bold text-white rounded-lg text-xs transition shadow-sm ${statusInfo.nextBtnClass} cursor-pointer`}
-                                  >
-                                    {statusInfo.nextLabel}
-                                  </button>
-                                )
-                              )}
-                              
-                              {order.status === 'pending' && (
+                            {order.status === 'pending' ? (
+                              <button
+                                onClick={() => setSelectedOrder(order)}
+                                className="w-full px-3 py-2 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-lg transition shadow-sm cursor-pointer text-center"
+                              >
+                                Xem đơn đặt hàng
+                              </button>
+                            ) : (
+                              <>
                                 <button
-                                  onClick={() => openConfirmModal(order, 'cancelled', 'Hủy')}
-                                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold rounded-lg text-xs transition border border-rose-200 cursor-pointer"
+                                  onClick={() => setSelectedOrder(order)}
+                                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-lg transition cursor-pointer"
                                 >
-                                  Hủy
+                                  Chi tiết
                                 </button>
-                              )}
-                            </div>
+                                
+                                <div className="flex items-center gap-1.5">
+                                  {statusInfo.nextStatus && (
+                                    order.status === 'shipping' && !order.customer_confirmed ? (
+                                      <button
+                                        disabled
+                                        title="Khách hàng chưa bấm 'Đã nhận hàng' trên ứng dụng"
+                                        className="px-3 py-1.5 font-bold rounded-lg text-xs bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                                      >
+                                        🔒 Chờ khách
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => openConfirmModal(order, statusInfo.nextStatus, statusInfo.nextLabel)}
+                                        className={`px-3 py-1.5 font-bold text-white rounded-lg text-xs transition shadow-sm ${statusInfo.nextBtnClass} cursor-pointer`}
+                                      >
+                                        {statusInfo.nextLabel}
+                                      </button>
+                                    )
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </div>
                         </div>
                       );
@@ -374,7 +385,7 @@ const OrdersManagement = () => {
       )}
 
       {confirmModal.isOpen && confirmModal.order && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl max-w-md w-full overflow-hidden flex flex-col shadow-2xl scale-in-center">
             <div className={`px-6 py-4 border-b flex items-center gap-3 ${
               confirmModal.targetStatus === 'cancelled' ? 'border-rose-100 bg-rose-50' : 'border-red-100 bg-red-50'
