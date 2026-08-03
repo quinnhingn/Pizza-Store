@@ -13,6 +13,7 @@ from app.models.voucher import Voucher
 from app.models.user import User
 from app.models.user_notification import UserNotification
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
+from app.api.ws import manager
 
 router = APIRouter()
 
@@ -157,6 +158,14 @@ async def create_order(
         )
         refresh_result = await db.execute(fetch_stmt)
         complete_order = refresh_result.scalar_one()
+        
+        # Broadcast WebSocket event to admins
+        await manager.broadcast_to_admins({
+            "type": "new_order",
+            "message": f"Đơn hàng mới {order_code} vừa được đặt.",
+            "order_id": complete_order.id
+        })
+        
         return complete_order
 
     except HTTPException as http_ex:
@@ -271,6 +280,17 @@ async def update_order_status(
 
     await db.commit()
     await db.refresh(order)
+    
+    # Broadcast status update
+    event_data = {
+        "type": "order_update",
+        "message": f"Đơn hàng {order.order_code} đã được cập nhật trạng thái.",
+        "order_id": order.id,
+        "status": payload.status
+    }
+    await manager.send_personal_message(event_data, order.user_id)
+    await manager.broadcast_to_admins(event_data)
+    
     return order
 
 @router.put("/{order_id}/cancel", response_model=OrderResponse)
@@ -313,6 +333,17 @@ async def cancel_order(
     db.add(order)
     await db.commit()
     await db.refresh(order)
+    
+    # Broadcast cancellation
+    event_data = {
+        "type": "order_update",
+        "message": f"Đơn hàng {order.order_code} đã bị hủy.",
+        "order_id": order.id,
+        "status": "cancelled"
+    }
+    await manager.send_personal_message(event_data, order.user_id)
+    await manager.broadcast_to_admins(event_data)
+    
     return order
 
 @router.put("/{order_id}/confirm-received", response_model=OrderResponse)
@@ -364,4 +395,16 @@ async def confirm_order_received(
 
     await db.commit()
     await db.refresh(order)
+
+    # Broadcast confirm received
+    event_data = {
+        "type": "order_update",
+        "message": f"Khách hàng đã xác nhận nhận đơn hàng {order.order_code}.",
+        "order_id": order.id,
+        "status": order.status,
+        "customer_confirmed": True
+    }
+    await manager.send_personal_message(event_data, order.user_id)
+    await manager.broadcast_to_admins(event_data)
+
     return order

@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from typing import Dict
 
 # Import routers
-from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products, cart, vouchers, orders, notifications
+from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products, cart, vouchers, orders, notifications, ws
 
 # Ensure static/uploads directory exists for fallback images
 os.makedirs("static/uploads", exist_ok=True)
@@ -57,6 +57,7 @@ app.include_router(cart.router, prefix="/api/cart", tags=["Cart"])
 app.include_router(vouchers.router, prefix="/api/vouchers", tags=["Vouchers"])
 app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
+app.include_router(ws.router, prefix="/api/ws", tags=["WebSockets"])
 
 @app.get("/api/ping", tags=["Health Check"])
 async def ping_server() -> Dict[str, str]:
