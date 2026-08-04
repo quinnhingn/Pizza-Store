@@ -7,6 +7,7 @@ from app.models.voucher import Voucher
 from app.models.order import Order, OrderItem
 from app.models.user_notification import UserNotification
 from app.models.user_voucher import UserVoucher
+from app.models.chat_history import ChatHistory
 
 __all__ = [
     "User",
@@ -25,4 +26,5 @@ __all__ = [
     "OrderItem",
     "UserNotification",
     "UserVoucher",
+    "ChatHistory",
 ]
