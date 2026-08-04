@@ -17,6 +17,9 @@ import VouchersManagement from './pages/admin/VouchersManagement';
 import OrderHistory from './pages/customer/OrderHistory';
 import OrdersManagement from './pages/admin/OrdersManagement';
 import AdminOrderHistory from './pages/admin/AdminOrderHistory';
+import BannerList from './pages/admin/banners/BannerList';
+import BannerForm from './pages/admin/banners/BannerForm';
+import Footer from './components/common/Footer';
 
 const CustomerLayout = () => (
     <div className="min-h-screen w-full bg-gray-50 flex flex-col">
@@ -28,6 +31,9 @@ const CustomerLayout = () => (
             <Outlet />
             <ChatbotWidget />
         </main>
+
+        {/* Footer */}
+        <Footer />
     </div>
 );
 
@@ -62,8 +68,12 @@ function App() {
                 <Route path="orders" element={<OrdersManagement />} />
                 <Route path="orders-history" element={<AdminOrderHistory />} />
                 <Route path="vouchers" element={<VouchersManagement />} />
+                <Route path="banners" element={<BannerList />} />
+                <Route path="banners/new" element={<BannerForm />} />
+                <Route path="banners/:id/edit" element={<BannerForm />} />
                 <Route path="users" element={<div className="bg-white p-6 rounded-xl border border-gray-200 text-sm text-gray-600">Trang quản lý Khách hàng</div>} />
             </Route>
+
         </Routes>
     );
 }

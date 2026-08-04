@@ -31,16 +31,16 @@ const Navbar = () => {
 
   return (
     <>
-      <nav className="bg-gradient-to-r from-red-600 via-red-650 to-red-700 text-white shadow-lg sticky top-0 z-50">
+      <nav className="bg-gradient-to-r from-red-600 via-red-700 to-orange-600 text-white shadow-md sticky top-0 z-50">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 flex justify-between items-center">
           {/* Brand Logo */}
-          <Link to="/" className="flex items-center gap-2 sm:gap-2.5 text-xl sm:text-2xl font-black tracking-tight hover:opacity-95 transition-opacity">
-            <span className="text-2xl sm:text-3xl">🍕</span>
-            <span>Pizza Store</span>
+          <Link to="/" className="flex items-center gap-2 sm:gap-2.5 text-xl sm:text-2xl font-black tracking-tight hover:opacity-90 transition-opacity text-white">
+            <span className="text-2xl sm:text-3xl drop-shadow-md">🍕</span>
+            <span className="drop-shadow-sm">PizzaStore</span>
           </Link>
 
           {/* Navigation Actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-4">
             {/* Notification Bell (Only for logged-in user) */}
             {isAuthenticated && user && (
               <NotificationDropdown isAdmin={false} isDarkBg={true} />
@@ -50,33 +50,33 @@ const Navbar = () => {
             <Link
               to="/cart"
               title="Giỏ hàng của bạn"
-              className="relative p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-full border border-white/20 text-white shadow-sm flex items-center justify-center"
+              className="relative p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-full border border-white/20 text-white flex items-center justify-center backdrop-blur-sm shadow-sm"
             >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
               {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 bg-yellow-400 text-red-900 text-[10px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center shadow-md">
+                <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-[10px] font-bold min-w-[20px] h-[20px] px-1 rounded-full flex items-center justify-center shadow-sm">
                   {totalItems}
                 </span>
               )}
             </Link>
 
-            {/* User Dropdown Button (Airbnb menu style pill) */}
+            {/* User Dropdown Button */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2.5 p-1.5 pl-3 bg-white text-gray-800 hover:shadow-md active:scale-95 transition-all rounded-full border border-gray-200 shadow-sm"
+                className="flex items-center gap-2 p-1.5 pl-3 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-full border border-white/20 shadow-sm backdrop-blur-sm"
                 title="Tài khoản & Điều hướng"
               >
                 {/* Hamburger icon */}
-                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
                 {/* User avatar icon */}
-                <div className="w-7 h-7 rounded-full bg-gray-600 text-white flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                <div className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                   </svg>
                 </div>
               </button>
@@ -166,7 +166,6 @@ const Navbar = () => {
           </div>
         </div>
       </nav>
-
     </>
   );
 };

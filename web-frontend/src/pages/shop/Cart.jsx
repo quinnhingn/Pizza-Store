@@ -216,10 +216,17 @@ const Cart = () => {
                 return (
                   <div
                     key={item.id}
-                    className={`bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 flex flex-col sm:flex-row gap-5 relative ${
-                      isUpdating ? 'opacity-60 pointer-events-none' : ''
+                    className={`bg-white rounded-2xl p-5 sm:p-6 border border-gray-200/80 flex flex-col sm:flex-row gap-5 relative overflow-hidden transition-all ${
+                      isUpdating ? 'pointer-events-none ring-1 ring-red-500/20' : ''
                     }`}
                   >
+                    {/* Hiệu ứng Loading Spinner Overlay */}
+                    {isUpdating && (
+                      <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-[2px] flex flex-col items-center justify-center animate-fade-in">
+                        <div className="w-8 h-8 border-4 border-red-100 border-t-red-600 rounded-full animate-spin mb-2 shadow-sm"></div>
+                        <span className="text-xs font-bold text-red-600 bg-white px-2 py-1 rounded-full shadow-sm">Đang cập nhật...</span>
+                      </div>
+                    )}
                     {/* Thumbnail */}
                     <div className="w-full sm:w-24 sm:h-24 h-44 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-gray-100">
                       <img
