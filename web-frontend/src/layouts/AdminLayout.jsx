@@ -11,7 +11,8 @@ import {
   Utensils,
   ChevronDown,
   ChevronRight,
-  History
+  History,
+  Image
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import NotificationDropdown from '../components/common/NotificationDropdown';
@@ -59,6 +60,7 @@ const AdminLayout = () => {
             { name: 'Quản lý món', path: '/admin/products', icon: Package },
           ]
         },
+        { name: 'Quản lý Banner', path: '/admin/banners', icon: Image },
         { name: 'Cấu hình thuộc tính', path: '/admin/catalog', icon: Sliders },
       ]
     }

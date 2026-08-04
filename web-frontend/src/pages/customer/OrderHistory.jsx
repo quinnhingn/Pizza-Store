@@ -41,7 +41,7 @@ const OrderHistory = () => {
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (latestMessage && (latestMessage.type === 'order_status_update' || latestMessage.type === 'new_order')) {
+    if (latestMessage && (latestMessage.type === 'order_update' || latestMessage.type === 'new_order')) {
       fetchMyOrders(true);
     }
   }, [latestMessage]);

@@ -8,6 +8,8 @@ from typing import Dict
 
 # Import routers
 from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products, cart, vouchers, orders, notifications, ws, chat
+from app.api.admin import banners as admin_banners
+from app.api.public import banners as public_banners
 
 # Ensure static/uploads directory exists for fallback images
 os.makedirs("static/uploads", exist_ok=True)
@@ -20,7 +22,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,6 +61,9 @@ app.include_router(orders.router, prefix="/api/orders", tags=["Orders"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(ws.router, prefix="/api/ws", tags=["WebSockets"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chatbot AI"])
+app.include_router(admin_banners.router, prefix="/api/admin/banners", tags=["Admin - Banners"])
+app.include_router(public_banners.router, prefix="/api/banners/public", tags=["Public - Banners"])
+
 
 @app.get("/api/ping", tags=["Health Check"])
 async def ping_server() -> Dict[str, str]:

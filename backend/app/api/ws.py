@@ -67,14 +67,21 @@ async def get_user_from_token(token: str) -> Optional[User]:
         if user_id_str is None:
             return None
         user_id = int(user_id_str)
-    except JWTError:
+    except JWTError as e:
+        print(f"WS JWT Error: {e}")
         return None
 
     async with AsyncSessionLocal() as db:
-        stmt = select(User).where(User.id == user_id, User.is_active == True)
-        result = await db.execute(stmt)
-        user = result.scalar_one_or_none()
-        return user
+        try:
+            stmt = select(User).where(User.id == user_id, User.is_active == True)
+            result = await db.execute(stmt)
+            user = result.scalar_one_or_none()
+            if not user:
+                print(f"WS Auth Failed: User {user_id} not found or inactive")
+            return user
+        except Exception as e:
+            print(f"WS DB Error: {e}")
+            return None
 
 @router.websocket("")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):

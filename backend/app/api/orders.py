@@ -281,10 +281,17 @@ async def update_order_status(
     await db.commit()
     await db.refresh(order)
     
+    status_messages = {
+        "confirmed": f"Đơn hàng {order.order_code} đã được quán xác nhận.",
+        "shipping": f"Đơn hàng {order.order_code} đang trên đường giao đến bạn!",
+        "completed": f"Đơn hàng {order.order_code} đã được giao thành công.",
+        "cancelled": f"Đơn hàng {order.order_code} đã bị hủy."
+    }
+
     # Broadcast status update
     event_data = {
         "type": "order_update",
-        "message": f"Đơn hàng {order.order_code} đã được cập nhật trạng thái.",
+        "message": status_messages.get(payload.status, f"Đơn hàng {order.order_code} đã được cập nhật trạng thái."),
         "order_id": order.id,
         "status": payload.status
     }
