@@ -1,5 +1,6 @@
 import { Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/common/Navbar';
+import ChatbotWidget from './components/common/ChatbotWidget';
 import Home from './pages/shop/Home';
 import Cart from './pages/shop/Cart';
 import Checkout from './pages/shop/Checkout';
@@ -23,8 +24,9 @@ const CustomerLayout = () => (
         <Navbar />
 
         {/* Dynamic Page Content */}
-        <main className="flex-grow w-full">
+        <main className="flex-grow w-full relative">
             <Outlet />
+            <ChatbotWidget />
         </main>
     </div>
 );
