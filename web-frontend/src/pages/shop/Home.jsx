@@ -299,6 +299,10 @@ const Home = () => {
             autoplay={{ delay: 5000, disableOnInteraction: false }}
             loop={banners.length > 1}
             className="w-full h-[250px] sm:h-[350px] md:h-[450px] lg:h-[500px]"
+            style={{
+              '--swiper-navigation-color': '#111827',
+              '--swiper-pagination-color': '#111827',
+            }}
           >
             {banners.map((banner) => (
               <SwiperSlide key={banner.id}>

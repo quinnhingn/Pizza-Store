@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Plus, Star } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency';
+import CustomerProductReviewsModal from './CustomerProductReviewsModal';
 
 const DEFAULT_PIZZA_IMG = 'http://localhost:8000/static/uploads/default_pizza.png';
 
@@ -12,9 +13,26 @@ const getIngredientName = (ing) => {
 
 const ProductCard = ({ product, categoryNameMap = {}, onSelectProduct }) => {
   const [imgError, setImgError] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
 
   const categoryName = categoryNameMap[product.category_id] || 'Món Ăn';
   const displayImage = (!imgError && product.image_url) ? product.image_url : DEFAULT_PIZZA_IMG;
+  const averageRating = product.average_rating || 0;
+  const totalReviews = product.total_reviews || 0;
+
+  // Tính giá size nhỏ nhất
+  const smallestPrice = useMemo(() => {
+    let base = Number(product.price || 0);
+    if (!product.sizes || product.sizes.length === 0) return base;
+    let minSizePrice = Infinity;
+    product.sizes.forEach(s => {
+      const mult = Number(s.price_multiplier !== undefined ? s.price_multiplier : (s.mult || 1));
+      const extra = Number(s.extra_price !== undefined ? s.extra_price : (s.extra || 0));
+      const price = Math.round(base * mult + extra);
+      if (price < minSizePrice) minSizePrice = price;
+    });
+    return minSizePrice === Infinity ? base : minSizePrice;
+  }, [product]);
 
   // Kiểm tra trạng thái món có sẵn sàng để bán hay không
   const isAvailable = product.is_available !== false && product.is_available !== 0 && product.status !== 'inactive' && product.status !== 'out_of_stock';
@@ -112,18 +130,37 @@ const ProductCard = ({ product, categoryNameMap = {}, onSelectProduct }) => {
               )}
             </div>
           )}
+
+          {/* Đánh giá */}
+          <div className="mt-3 flex items-center justify-between">
+            {totalReviews > 0 ? (
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowReviews(true); }}
+                className="flex items-center gap-1.5 hover:bg-amber-50 px-2 py-1 -ml-2 rounded-lg transition-colors group/review cursor-pointer"
+              >
+                <div className="flex items-center text-amber-500 font-bold text-sm">
+                  <Star className="w-4 h-4 fill-current mr-1" />
+                  {averageRating > 0 ? averageRating.toFixed(1) : '0'}
+                </div>
+                <span className="text-xs text-gray-500 group-hover/review:text-amber-700 underline decoration-dashed underline-offset-2">({totalReviews} đánh giá)</span>
+              </button>
+            ) : (
+              <span className="text-xs font-semibold text-gray-400 italic px-2 py-1 -ml-2">Chưa có đánh giá</span>
+            )}
+          </div>
         </div>
 
         {/* Phần Giá & Nút Chọn món / Hết món */}
         <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-3 mt-auto">
           <div>
-            <span className="text-xs text-gray-400 block font-medium uppercase tracking-wider">
-              Giá bán
+            <span className="text-xs text-gray-400 block font-medium uppercase tracking-wider mb-0.5">
+              Giá chỉ từ
             </span>
-            <span className={`text-xl font-extrabold tracking-tight ${
+            <span className={`text-lg tracking-tight font-medium ${
               isAvailable ? 'text-red-600' : 'text-gray-400'
             }`}>
-              {formatCurrency(product.price)}
+              {formatCurrency(smallestPrice)}
             </span>
           </div>
 
@@ -153,6 +190,14 @@ const ProductCard = ({ product, categoryNameMap = {}, onSelectProduct }) => {
           )}
         </div>
       </div>
+      
+      {/* Reviews Modal */}
+      {showReviews && (
+        <CustomerProductReviewsModal 
+          product={product} 
+          onClose={() => setShowReviews(false)} 
+        />
+      )}
     </div>
   );
 };

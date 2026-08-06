@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Plus, Minus, Check, ShoppingBag, AlertCircle } from 'lucide-react';
+import { X, Plus, Minus, Check, ShoppingBag, AlertCircle, Star } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatCurrency';
+import reviewsAPI from '../../api/reviewsAPI';
 
 const DEFAULT_PIZZA_IMG = 'http://localhost:8000/static/uploads/default_pizza.png';
 
@@ -28,11 +29,11 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, initialCart
 
         // Pre-select toppings matching initialCartItem.toppings
         const initTops = Array.isArray(initialCartItem.toppings) ? initialCartItem.toppings : [];
-        const prodTops = Array.isArray(product.toppings) ? product.toppings : [];
-        const matchedTops = prodTops.filter(pt =>
-          initTops.some(it => (it.name || it.topping_name || "").trim().toLowerCase() === (pt.topping_name || pt.name || "").trim().toLowerCase())
+        const prodToppings = Array.isArray(product.toppings) ? product.toppings : [];
+        const matchedToppings = prodToppings.filter(t => 
+          initTops.some(it => (it.id === t.id) || (it.topping_name === t.topping_name))
         );
-        setSelectedToppings(matchedTops);
+        setSelectedToppings(matchedToppings);
 
         setQuantity(initialCartItem.quantity || 1);
         setNote(initialCartItem.note || '');
@@ -43,9 +44,14 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, initialCart
         setQuantity(1);
         setNote('');
       }
-      setImgError(false);
+    } else {
+      if (!isOpen) {
+        setImgError(false);
+      }
     }
   }, [product, isOpen, initialCartItem]);
+
+
 
   // Kiểm tra trạng thái có sẵn để bán
   const isAvailable = useMemo(() => {
@@ -96,7 +102,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, initialCart
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/65 backdrop-blur-md animate-fadeIn overflow-y-auto">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/65 backdrop-blur-md animate-fadeIn overflow-y-auto">
       <div 
         onClick={(e) => e.stopPropagation()} 
         className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden border border-gray-100 flex flex-col lg:flex-row my-auto max-h-[92vh] lg:max-h-[86vh]"
@@ -156,6 +162,17 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, initialCart
               <p className="mt-1.5 text-xs sm:text-sm text-gray-500 leading-relaxed">
                 {product.description || 'Hương vị tuyệt hảo từ nguyên liệu tươi ngon chuẩn vị Ý.'}
               </p>
+              {product.total_reviews > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <div className="flex text-yellow-400">
+                    <Star className="w-4 h-4 fill-current" />
+                  </div>
+                  <span className="text-sm font-bold text-gray-700">
+                    {product.average_rating > 0 ? product.average_rating.toFixed(1) : '0'}/5
+                  </span>
+                  <span className="text-xs text-gray-500">({product.total_reviews} đánh giá)</span>
+                </div>
+              )}
             </div>
             <button
               onClick={onClose}
@@ -167,6 +184,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, initialCart
 
           {/* Body cuộn scroll */}
           <div className="p-5 sm:p-6 overflow-y-auto flex-grow space-y-6">
+            <>
             {/* Nguyên liệu cho màn nhỏ (mobile) */}
             {ingredientsList.length > 0 && (
               <div className="block lg:hidden">
@@ -336,6 +354,7 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, initialCart
                 </div>
               </div>
             </div>
+            </>
           </div>
 
           {/* Footer Bar: Tổng hợp & Nút Thêm giỏ hàng */}
