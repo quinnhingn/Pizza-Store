@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, Package, ShoppingBag, Gift, Info } from 'lucide-react';
+import { Bell, CheckCheck, Package, ShoppingBag, Gift, Info, Star } from 'lucide-react';
 import useNotifications from '../../hooks/useNotifications';
 import vouchersAPI from '../../api/vouchersAPI';
 
@@ -29,7 +29,11 @@ const NotificationDropdown = ({ isAdmin = false, isDarkBg = false }) => {
 
     if (isAdmin) {
       if (item.type === 'new_order' || item.type === 'order_received' || item.reference_code) {
-        navigate('/admin/orders');
+        if (item.type === 'new_review') {
+          navigate('/admin/reviews');
+        } else {
+          navigate('/admin/orders');
+        }
       }
     } else {
       if (item.type === 'order_shipping' || item.type === 'order_received' || item.reference_code) {
@@ -62,6 +66,8 @@ const NotificationDropdown = ({ isAdmin = false, isDarkBg = false }) => {
     switch (type) {
       case 'new_order':
         return <ShoppingBag className="w-4 h-4 text-amber-600" />;
+      case 'new_review':
+        return <Star className="w-4 h-4 text-yellow-500 fill-current" />;
       case 'order_shipping':
       case 'order_received':
         return <Package className="w-4 h-4 text-indigo-600" />;

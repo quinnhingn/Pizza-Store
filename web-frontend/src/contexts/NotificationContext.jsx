@@ -39,9 +39,11 @@ export const NotificationProvider = ({ children }) => {
   useEffect(() => {
     if (latestMessage && isAuthenticated) {
       fetchNotifications(true);
-      setToastMessage(latestMessage.message);
-      const timer = setTimeout(() => setToastMessage(null), 5000);
-      return () => clearTimeout(timer);
+      if (latestMessage.type !== 'new_review') {
+        setToastMessage(latestMessage.message);
+        const timer = setTimeout(() => setToastMessage(null), 5000);
+        return () => clearTimeout(timer);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [latestMessage]);

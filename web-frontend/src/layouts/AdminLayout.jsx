@@ -12,7 +12,8 @@ import {
   ChevronDown,
   ChevronRight,
   History,
-  Image
+  Image,
+  MessageSquare
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import NotificationDropdown from '../components/common/NotificationDropdown';
@@ -44,6 +45,7 @@ const AdminLayout = () => {
       items: [
         { name: 'Đơn đang xử lý', path: '/admin/orders', icon: ShoppingBag },
         { name: 'Lịch sử đơn hàng', path: '/admin/orders-history', icon: History },
+        { name: 'Quản lý Đánh giá', path: '/admin/reviews', icon: MessageSquare },
         { name: 'Khách hàng & Thành viên', path: '/admin/users', icon: Users },
         { name: 'Khuyến mãi & Voucher', path: '/admin/vouchers', icon: Ticket },
       ]
