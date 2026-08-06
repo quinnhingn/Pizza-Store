@@ -53,6 +53,8 @@ class ProductUpdate(BaseModel):
 class ProductResponse(ProductBase):
     id: int
     created_at: Optional[datetime] = None
+    average_rating: float = 0.0
+    total_reviews: int = 0
 
     class Config:
         from_attributes = True

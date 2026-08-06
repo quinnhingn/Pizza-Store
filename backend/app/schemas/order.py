@@ -38,6 +38,7 @@ class OrderResponse(BaseModel):
     note: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
+    has_reviews: bool = False
     items: List[OrderItemResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

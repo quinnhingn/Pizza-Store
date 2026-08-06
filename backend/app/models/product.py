@@ -39,6 +39,7 @@ class Product(Base):
     ingredient_associations = relationship("ProductIngredient", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
     size_associations = relationship("ProductSize", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
     topping_associations = relationship("ProductTopping", back_populates="product", cascade="all, delete-orphan", lazy="selectin")
+    reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan", lazy="select")
 
     @property
     def ingredients(self) -> list[str]:

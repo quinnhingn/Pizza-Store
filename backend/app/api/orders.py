@@ -193,7 +193,18 @@ async def get_my_orders(
         .order_by(Order.created_at.desc())
     )
     result = await db.execute(stmt)
-    orders = result.scalars().all()
+    orders = list(result.scalars().all())
+
+    if orders:
+        from app.models.review import Review
+        order_ids = [o.id for o in orders]
+        review_stmt = select(Review.order_id).where(Review.order_id.in_(order_ids))
+        review_result = await db.execute(review_stmt)
+        reviewed_order_ids = set(review_result.scalars().all())
+        
+        for order in orders:
+            order.has_reviews = order.id in reviewed_order_ids
+
     return orders
 
 @router.get("", response_model=List[OrderResponse])

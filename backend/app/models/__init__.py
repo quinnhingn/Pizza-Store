@@ -9,6 +9,7 @@ from app.models.user_notification import UserNotification
 from app.models.user_voucher import UserVoucher
 from app.models.chat_history import ChatHistory
 from app.models.banner import Banner
+from app.models.review import Review
 
 __all__ = [
     "User",
@@ -29,4 +30,5 @@ __all__ = [
     "UserVoucher",
     "ChatHistory",
     "Banner",
+    "Review",
 ]

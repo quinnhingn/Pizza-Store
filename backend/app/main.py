@@ -9,7 +9,12 @@ from typing import Dict
 # Import routers
 from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products, cart, vouchers, orders, notifications, ws, chat
 from app.api.admin import banners as admin_banners
+from app.api.admin import dashboard as admin_dashboard
+from app.api.admin import customers as admin_customers
+from app.api.admin import reviews as admin_reviews
 from app.api.public import banners as public_banners
+from app.api.public import reviews as public_reviews
+from app.api.customer import reviews as customer_reviews
 
 # Ensure static/uploads directory exists for fallback images
 os.makedirs("static/uploads", exist_ok=True)
@@ -62,6 +67,11 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 app.include_router(ws.router, prefix="/api/ws", tags=["WebSockets"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chatbot AI"])
 app.include_router(admin_banners.router, prefix="/api/admin/banners", tags=["Admin - Banners"])
+app.include_router(admin_dashboard.router, prefix="/api/admin/dashboard", tags=["Admin - Dashboard"])
+app.include_router(admin_customers.router, prefix="/api/admin/customers", tags=["Admin - Customers"])
+app.include_router(admin_reviews.router, prefix="/api/admin/reviews", tags=["Admin - Reviews"])
+app.include_router(public_reviews.router, prefix="/api/public", tags=["Public - Reviews"])
+app.include_router(customer_reviews.router, prefix="/api/customer", tags=["Customer - Reviews"])
 app.include_router(public_banners.router, prefix="/api/banners/public", tags=["Public - Banners"])
 
 

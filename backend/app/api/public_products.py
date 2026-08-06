@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from app.core.deps import get_db
 from app.models.product import Product, Ingredient, ProductIngredient
+from app.models.review import Review
 from app.schemas.product import ProductResponse, PaginatedProductResponse
 
 router = APIRouter()
@@ -73,6 +74,27 @@ async def get_public_products(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
+    if items:
+        product_ids = [p.id for p in items]
+        review_query = select(
+            Review.product_id,
+            func.count(Review.id).label('total'),
+            func.avg(Review.rating).label('avg')
+        ).where(
+            and_(
+                Review.product_id.in_(product_ids),
+                Review.is_visible == True
+            )
+        ).group_by(Review.product_id)
+        
+        review_res = await db.execute(review_query)
+        review_stats = {r.product_id: r for r in review_res.all()}
+
+        for p in items:
+            stats = review_stats.get(p.id)
+            p.average_rating = float(stats.avg) if stats and stats.avg else 0.0
+            p.total_reviews = int(stats.total) if stats and stats.total else 0
+
     return {
         "items": items,
         "total_count": total_count,
@@ -107,4 +129,19 @@ async def get_public_product(
     product = res.scalar_one_or_none()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+
+    review_query = select(
+        func.count(Review.id).label('total'),
+        func.avg(Review.rating).label('avg')
+    ).where(
+        and_(
+            Review.product_id == product_id,
+            Review.is_visible == True
+        )
+    )
+    review_res = await db.execute(review_query)
+    stats = review_res.first()
+    product.average_rating = float(stats.avg) if stats and stats.avg else 0.0
+    product.total_reviews = int(stats.total) if stats and stats.total else 0
+
     return product
