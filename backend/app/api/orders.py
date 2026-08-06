@@ -12,6 +12,7 @@ from app.models.cart import CartItem
 from app.models.voucher import Voucher
 from app.models.user import User
 from app.models.user_notification import UserNotification
+from app.models.user_voucher import UserVoucher
 from app.schemas.order import OrderCreate, OrderResponse, OrderStatusUpdate
 from app.api.ws import manager
 
@@ -59,6 +60,19 @@ async def create_order(
                     detail="Mã giảm giá không tồn tại hoặc đã ngừng hoạt động."
                 )
 
+            # Check one-time usage per user
+            chk_used = await db.execute(
+                select(Order).where(
+                    Order.user_id == current_user.id,
+                    Order.voucher_code == voucher.code
+                )
+            )
+            if chk_used.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Bạn đã sử dụng mã giảm giá này rồi. Mỗi mã chỉ áp dụng 1 lần cho 1 khách hàng."
+                )
+
             now = datetime.now()
             if now < voucher.start_date or now > voucher.end_date:
                 raise HTTPException(
@@ -95,6 +109,17 @@ async def create_order(
             # Increment voucher usage count inside transaction
             voucher.used_count += 1
             db.add(voucher)
+
+            # Find UserVoucher and mark as used
+            uv_stmt = select(UserVoucher).where(
+                UserVoucher.user_id == current_user.id,
+                UserVoucher.voucher_code == voucher.code
+            )
+            uv_result = await db.execute(uv_stmt)
+            user_voucher = uv_result.scalar_one_or_none()
+            if user_voucher:
+                user_voucher.is_used = True
+                db.add(user_voucher)
 
         # 3. Calculate shipping fee and final total
         shipping_fee = Decimal("0.00") if subtotal >= Decimal("200000.00") else Decimal("25000.00")

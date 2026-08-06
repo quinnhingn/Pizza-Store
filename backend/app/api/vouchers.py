@@ -28,10 +28,12 @@ router = APIRouter()
 @router.post("/validate", response_model=VoucherValidateResponse)
 async def validate_voucher(
     payload: VoucherValidateRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Validate voucher code against current order value and return exact discount amount.
+    Enforces one-time usage per user.
     """
     code_clean = payload.code.strip().upper()
     stmt = select(Voucher).where(Voucher.code == code_clean)
@@ -44,6 +46,21 @@ async def validate_voucher(
             code=code_clean,
             discount_amount=0.0,
             message="Mã giảm giá không tồn tại."
+        )
+
+    # Check if user already used this voucher
+    chk_used = await db.execute(
+        select(Order).where(
+            Order.user_id == current_user.id,
+            Order.voucher_code == voucher.code
+        )
+    )
+    if chk_used.scalar_one_or_none():
+        return VoucherValidateResponse(
+            valid=False,
+            code=voucher.code,
+            discount_amount=0.0,
+            message="Bạn đã sử dụng mã giảm giá này rồi. Mỗi mã chỉ áp dụng 1 lần cho 1 khách hàng."
         )
 
     if not voucher.is_active:
