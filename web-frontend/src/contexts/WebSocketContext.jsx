@@ -13,6 +13,8 @@ export const WebSocketProvider = ({ children }) => {
   useEffect(() => {
     if (isAuthenticated && token) {
       let reconnectTimer = null;
+      let retryCount = 0;
+      const MAX_RETRIES = 5;
       
       const connectWebSocket = () => {
         const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
@@ -21,6 +23,7 @@ export const WebSocketProvider = ({ children }) => {
 
         ws.current.onopen = () => {
           console.log('WebSocket Connected');
+          retryCount = 0;
         };
 
         ws.current.onmessage = (event) => {
@@ -37,12 +40,16 @@ export const WebSocketProvider = ({ children }) => {
 
         ws.current.onclose = (event) => {
           console.log('WebSocket Disconnected', event);
-          // Try to reconnect in 3 seconds if not intentionally closed by cleanup
-          if (event.code !== 1000) {
+          // Try to reconnect with exponential backoff if not intentionally closed
+          if (event.code !== 1000 && retryCount < MAX_RETRIES) {
+            retryCount++;
+            const timeout = Math.min(3000 * Math.pow(2, retryCount - 1), 30000);
             reconnectTimer = setTimeout(() => {
-              console.log('Attempting to reconnect WebSocket...');
+              console.log(`Attempting to reconnect WebSocket (attempt ${retryCount}/${MAX_RETRIES})...`);
               connectWebSocket();
-            }, 3000);
+            }, timeout);
+          } else if (retryCount >= MAX_RETRIES) {
+            console.error('WebSocket connection failed after maximum retries. Please refresh or login again.');
           }
         };
       };

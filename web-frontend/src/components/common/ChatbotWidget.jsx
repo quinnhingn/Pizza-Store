@@ -3,6 +3,8 @@ import { MessageSquare, X, Send, Bot, User as UserIcon, ShoppingCart, Info } fro
 import chatAPI from '../../api/chatAPI';
 import useCart from '../../hooks/useCart';
 import { useNavigate } from 'react-router-dom';
+import ProductDetailModal from '../customer/ProductDetailModal';
+import productsAPI from '../../api/productsAPI';
 
 const ChatbotWidget = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -16,6 +18,8 @@ const ChatbotWidget = () => {
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [activeDetailProduct, setActiveDetailProduct] = useState(null);
+  const [toastAlert, setToastAlert] = useState(null);
   
   const messagesEndRef = useRef(null);
   const { addToCart } = useCart();
@@ -31,6 +35,41 @@ const ChatbotWidget = () => {
 
   const formatPrice = (amount) => {
     return Number(amount).toLocaleString('vi-VN') + 'đ';
+  };
+
+  const handleSelectProduct = async (product) => {
+    try {
+      const res = await productsAPI.getPublicProductById(product.id);
+      setActiveDetailProduct(res.data || res);
+    } catch (error) {
+      console.error("Lỗi khi tải chi tiết món:", error);
+      setActiveDetailProduct(product); // fallback
+    }
+  };
+
+  const handleAddToCartFromModal = async (payload) => {
+    if (!payload) return;
+    const apiPayload = {
+      product_id: payload.product.id,
+      size_name: payload.size?.size_name || null,
+      toppings: (payload.toppings || []).map(t => ({
+        name: t.topping_name || t.name,
+        price: Number(t.extra_price || t.price || 0)
+      })),
+      quantity: payload.quantity || 1,
+      note: payload.note || "",
+      unit_price: Number(payload.unitPrice || 0),
+      product_info: payload.product
+    };
+    const result = await addToCart(apiPayload);
+    if (result && result.success !== false) {
+      setToastAlert('Đã thêm vào giỏ hàng');
+      setTimeout(() => {
+        setToastAlert(null);
+      }, 4000);
+    } else {
+      alert(result?.message || 'Có lỗi khi thêm vào giỏ hàng');
+    }
   };
 
   const handleSendMessage = async (textToSend) => {
@@ -131,20 +170,13 @@ const ChatbotWidget = () => {
                         <div className="p-2.5 flex flex-col flex-1">
                           <h4 className="font-bold text-xs text-gray-900 line-clamp-1">{product.name}</h4>
                           <p className="font-extrabold text-red-600 text-xs mt-1">{formatPrice(product.base_price)}</p>
-                          <div className="mt-auto pt-2.5 flex gap-1.5">
+                          <div className="mt-auto pt-2.5">
                             <button 
-                              onClick={() => navigate(`/product/${product.id}`)}
-                              className="flex-1 flex items-center justify-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-1.5 rounded-lg transition cursor-pointer"
-                              title="Chi tiết"
-                            >
-                              <Info className="w-3.5 h-3.5" />
-                            </button>
-                            <button 
-                              onClick={() => addToCart(product.id, 1, null, [])}
-                              className="flex-[2] flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700 text-white py-1.5 rounded-lg text-[10px] font-bold transition shadow-sm cursor-pointer"
+                              onClick={() => handleSelectProduct(product)}
+                              className="w-full flex items-center justify-center gap-1 bg-red-600 hover:bg-red-700 text-white py-1.5 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
                             >
                               <ShoppingCart className="w-3.5 h-3.5" />
-                              Thêm
+                              Chọn
                             </button>
                           </div>
                         </div>
@@ -218,6 +250,24 @@ const ChatbotWidget = () => {
           <MessageSquare className="w-6 h-6" />
           <span className="absolute top-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full"></span>
         </button>
+      )}
+      
+      {/* Modal Chi tiết Món */}
+      <ProductDetailModal
+        product={activeDetailProduct}
+        isOpen={Boolean(activeDetailProduct)}
+        onClose={() => setActiveDetailProduct(null)}
+        onAddToCart={handleAddToCartFromModal}
+      />
+
+      {/* Toast Notification */}
+      {toastAlert && (
+        <div className="fixed top-24 right-4 z-50 bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-fade-in-up">
+          <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+            <ShoppingCart size={16} className="text-white" />
+          </div>
+          <span className="font-medium text-sm">{toastAlert}</span>
+        </div>
       )}
     </div>
   );

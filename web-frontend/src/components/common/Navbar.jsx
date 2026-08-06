@@ -41,9 +41,12 @@ const Navbar = () => {
 
           {/* Navigation Actions */}
           <div className="flex items-center gap-2 sm:gap-4">
-            {/* Notification Bell (Only for logged-in user) */}
+            {/* Notifications (Only for logged-in user) */}
             {isAuthenticated && user && (
-              <NotificationDropdown isAdmin={false} isDarkBg={true} />
+              <div className="flex items-center gap-1 sm:gap-2">
+                <NotificationDropdown type="voucher" isAdmin={false} isDarkBg={true} />
+                <NotificationDropdown type="general" isAdmin={false} isDarkBg={true} />
+              </div>
             )}
 
             {/* Cart Button */}
