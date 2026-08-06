@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import ordersAPI from '../../api/ordersAPI';
 import useAuth from '../../hooks/useAuth';
 import { useWebSocket } from '../../contexts/WebSocketContext';
+import ReviewOrderModal from '../../components/customer/ReviewOrderModal';
 
 const STATUS_MAP = {
   pending: { label: 'Chờ xác nhận', badgeClass: 'bg-amber-50 text-amber-700 border border-amber-200' },
@@ -21,12 +22,28 @@ const TABS = [
   { id: 'cancelled', label: 'Đã hủy' }
 ];
 
+const isOrderReviewable = (order) => {
+  if (order.has_reviews) return true;
+  
+  if (order.status !== 'completed' && !(order.status === 'shipping' && order.customer_confirmed)) {
+    return false;
+  }
+  
+  const orderDate = new Date(order.updated_at || order.created_at);
+  const now = new Date();
+  const diffTime = now.getTime() - orderDate.getTime();
+  const diffDays = diffTime / (1000 * 60 * 60 * 24);
+  
+  return diffDays <= 7;
+};
+
 const OrderHistory = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [reviewOrder, setReviewOrder] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const { isAuthenticated } = useAuth();
   const { latestMessage } = useWebSocket() || {};
@@ -322,6 +339,17 @@ const OrderHistory = () => {
                         >
                           Xem chi tiết
                         </button>
+                        {isOrderReviewable(order) && (
+                          <button
+                            onClick={() => setReviewOrder(order)}
+                            className={order.has_reviews
+                              ? "px-4 py-2 bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
+                              : "px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition shadow-sm cursor-pointer"
+                            }
+                          >
+                            {order.has_reviews ? 'Xem lại / Đánh giá' : 'Đánh giá'}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -485,6 +513,16 @@ const OrderHistory = () => {
             </div>
           </div>
         </div>
+      )}
+      {reviewOrder && (
+        <ReviewOrderModal 
+          order={reviewOrder} 
+          onClose={() => setReviewOrder(null)} 
+          onSuccess={() => {
+            setReviewOrder(null);
+            fetchMyOrders(true);
+          }} 
+        />
       )}
     </div>
   );
