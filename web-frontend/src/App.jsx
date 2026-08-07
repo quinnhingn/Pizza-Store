@@ -10,6 +10,7 @@ import Profile from './pages/customer/Profile';
 import AdminRoute from './components/common/AdminRoute';
 import AdminLayout from './layouts/AdminLayout';
 import Dashboard from './pages/admin/Dashboard';
+import Analytics from './pages/admin/Analytics';
 import CategoriesManagement from './pages/admin/CategoriesManagement';
 import ProductsManagement from './pages/admin/ProductsManagement';
 import CatalogManagement from './pages/admin/CatalogManagement';
@@ -63,6 +64,7 @@ function App() {
                 }
             >
                 <Route index element={<Dashboard />} />
+                <Route path="analytics" element={<Analytics />} />
                 <Route path="categories" element={<CategoriesManagement />} />
                 <Route path="products" element={<ProductsManagement />} />
                 <Route path="catalog" element={<CatalogManagement />} />

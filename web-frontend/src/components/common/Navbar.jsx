@@ -42,7 +42,7 @@ const Navbar = () => {
           {/* Navigation Actions */}
           <div className="flex items-center gap-2 sm:gap-4">
             {/* Notifications (Only for logged-in user) */}
-            {isAuthenticated && user && (
+            {isAuthenticated && user && user.role !== 'admin' && (
               <div className="flex items-center gap-1 sm:gap-2">
                 <NotificationDropdown type="voucher" isAdmin={false} isDarkBg={true} />
                 <NotificationDropdown type="general" isAdmin={false} isDarkBg={true} />
@@ -50,20 +50,22 @@ const Navbar = () => {
             )}
 
             {/* Cart Button */}
-            <Link
-              to="/cart"
-              title="Giỏ hàng của bạn"
-              className="relative p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-full border border-white/20 text-white flex items-center justify-center backdrop-blur-sm shadow-sm"
-            >
-              <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-              {totalItems > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-[10px] font-bold min-w-[20px] h-[20px] px-1 rounded-full flex items-center justify-center shadow-sm">
-                  {totalItems}
-                </span>
-              )}
-            </Link>
+            {(!user || user.role !== 'admin') && (
+              <Link
+                to="/cart"
+                title="Giỏ hàng của bạn"
+                className="relative p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 transition-all rounded-full border border-white/20 text-white flex items-center justify-center backdrop-blur-sm shadow-sm"
+              >
+                <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                {totalItems > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-[10px] font-bold min-w-[20px] h-[20px] px-1 rounded-full flex items-center justify-center shadow-sm">
+                    {totalItems}
+                  </span>
+                )}
+              </Link>
+            )}
 
             {/* User Dropdown Button */}
             <div className="relative" ref={dropdownRef}>
@@ -99,31 +101,33 @@ const Navbar = () => {
                         )}
                       </div>
 
-                      {user.role === 'admin' && (
+                      {user.role === 'admin' ? (
                         <Link
                           to="/admin"
                           onClick={() => setShowDropdown(false)}
                           className="block px-4 py-2.5 text-red-600 font-bold hover:bg-gray-50 transition-colors"
                         >
-                          Quản trị Admin
+                          Vào trang Quản trị
                         </Link>
+                      ) : (
+                        <>
+                          <Link
+                            to="/profile"
+                            onClick={() => setShowDropdown(false)}
+                            className="block px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                          >
+                            Sổ địa chỉ & Tài khoản
+                          </Link>
+
+                          <Link
+                            to="/orders"
+                            onClick={() => setShowDropdown(false)}
+                            className="block px-4 py-2.5 hover:bg-gray-50 transition-colors"
+                          >
+                            Theo dõi đơn hàng
+                          </Link>
+                        </>
                       )}
-
-                      <Link
-                        to="/profile"
-                        onClick={() => setShowDropdown(false)}
-                        className="block px-4 py-2.5 hover:bg-gray-50 transition-colors"
-                      >
-                        Sổ địa chỉ & Tài khoản
-                      </Link>
-
-                      <Link
-                        to="/orders"
-                        onClick={() => setShowDropdown(false)}
-                        className="block px-4 py-2.5 hover:bg-gray-50 transition-colors"
-                      >
-                        Theo dõi đơn hàng
-                      </Link>
 
                       <hr className="my-1 border-gray-100" />
 

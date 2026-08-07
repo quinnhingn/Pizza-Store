@@ -202,10 +202,7 @@ const CatalogManagement = () => {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 tracking-tight">Cấu hình Thuộc tính & Từ điển gốc</h2>
-        <p className="text-sm text-gray-600 mt-1">
-          Quản lý tập trung các thông số chuẩn hóa: Từ điển nguyên liệu (`Master Ingredients`), kích cỡ (`Sizes`), và món thêm (`Toppings`).
-        </p>
+        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Cấu hình Thuộc tính & Từ điển gốc</h2>
       </div>
 
       {/* Tabs Navigation */}

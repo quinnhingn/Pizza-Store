@@ -111,10 +111,7 @@ const ProductsManagement = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 tracking-tight">Quản lý Sản phẩm</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Quản lý thực đơn Pizza, món ăn, giá tiền, hình ảnh và danh sách nguyên liệu
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Quản lý Sản phẩm</h2>
         </div>
         <button
           type="button"
@@ -249,7 +246,7 @@ const ProductsManagement = () => {
                             {categoryName}
                           </span>
                         </td>
-                        <td className="py-3.5 px-6 whitespace-nowrap font-mono font-bold text-gray-900 text-sm">
+                        <td className="py-3.5 px-6 whitespace-nowrap font-mono text-gray-900 text-sm">
                           {formatCurrency(prod.price)}
                         </td>
                         <td className="py-3.5 px-6">
@@ -340,7 +337,7 @@ const ProductsManagement = () => {
                                       return (
                                         <div key={idx} className="flex items-center justify-between text-xs bg-blue-50/40 px-2.5 py-1.5 rounded-lg border border-blue-100/60 font-medium">
                                           <span className="text-blue-900 font-semibold">{s.size_name} <span className="text-[11px] text-blue-600 font-normal">({[multText, extraText].filter(Boolean).join(' • ')})</span></span>
-                                          <span className="font-mono font-bold text-blue-700">{formatCurrency(calcPrice)}</span>
+                                          <span className="font-mono text-blue-700">{formatCurrency(calcPrice)}</span>
                                         </div>
                                       );
                                     })}
@@ -363,7 +360,7 @@ const ProductsManagement = () => {
                                     {prod.toppings.map((t, idx) => (
                                       <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-950 border border-purple-200/80 rounded-lg text-xs font-medium">
                                         <span>{t.topping_name}</span>
-                                        {t.extra_price > 0 && <span className="text-purple-600 font-mono font-bold">+{formatCurrency(t.extra_price)}</span>}
+                                        {t.extra_price > 0 && <span className="text-purple-600 font-mono">+{formatCurrency(t.extra_price)}</span>}
                                       </span>
                                     ))}
                                   </div>

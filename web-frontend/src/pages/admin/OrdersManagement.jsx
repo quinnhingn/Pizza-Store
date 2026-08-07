@@ -78,10 +78,25 @@ const OrdersManagement = () => {
   }, []);
 
   useEffect(() => {
-    if (latestMessage && (latestMessage.type === 'new_order' || latestMessage.type === 'order_update')) {
+    if (latestMessage && (
+      latestMessage.type === 'new_order' || 
+      latestMessage.type === 'order_update' || 
+      latestMessage.type === 'order_updated' || 
+      latestMessage.type === 'order_status_updated'
+    )) {
       fetchOrders(true);
     }
   }, [latestMessage]);
+
+  // Sync selectedOrder with latest fetched orders so modal updates automatically
+  useEffect(() => {
+    if (selectedOrder && orders.length > 0) {
+      const updatedOrder = orders.find(o => o.id === selectedOrder.id);
+      if (updatedOrder && JSON.stringify(updatedOrder) !== JSON.stringify(selectedOrder)) {
+        setSelectedOrder(updatedOrder);
+      }
+    }
+  }, [orders]);
 
   const fetchOrders = async (silent = false) => {
     try {
@@ -138,6 +153,7 @@ const OrdersManagement = () => {
       );
 
       closeConfirmModal();
+      setSelectedOrder(null);
     } catch (err) {
       alert(err.response?.data?.detail || 'Có lỗi xảy ra khi cập nhật trạng thái đơn hàng.');
       console.error('Update status error:', err);
@@ -187,34 +203,34 @@ const OrdersManagement = () => {
           <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
           <div>
             <span className="text-[11px] font-bold uppercase text-gray-500 block">Đơn đang xử lý</span>
-            <span className="text-xl font-extrabold text-gray-900">{totalActiveCount}</span>
+            <span className="text-xl text-gray-900">{totalActiveCount}</span>
           </div>
         </div>
         <div className="flex items-center gap-2.5 sm:pl-6 py-0.5 flex-1 min-w-[150px]">
           <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
           <div>
             <span className="text-[11px] font-bold uppercase text-amber-700 block">Chờ xác nhận</span>
-            <span className="text-xl font-extrabold text-amber-900">{pendingOrdersCount}</span>
+            <span className="text-xl text-amber-900">{pendingOrdersCount}</span>
           </div>
         </div>
         <div className="flex items-center gap-2.5 sm:pl-6 py-0.5 flex-1 min-w-[150px]">
           <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />
           <div>
             <span className="text-[11px] font-bold uppercase text-blue-700 block">Đã xác nhận (Bếp)</span>
-            <span className="text-xl font-extrabold text-blue-900">{confirmedOrdersCount}</span>
+            <span className="text-xl text-blue-900">{confirmedOrdersCount}</span>
           </div>
         </div>
         <div className="flex items-center gap-2.5 sm:pl-6 py-0.5 flex-1 min-w-[150px]">
           <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
           <div>
             <span className="text-[11px] font-bold uppercase text-indigo-700 block">Đang giao hàng</span>
-            <span className="text-xl font-extrabold text-indigo-900">{shippingOrdersCount}</span>
+            <span className="text-xl text-indigo-900">{shippingOrdersCount}</span>
           </div>
         </div>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-        <h2 className="text-lg font-bold text-gray-900 tracking-tight">
+        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">
           Bảng theo dõi tiến độ <span className="text-gray-500 font-medium text-sm ml-1">({filteredOrders.length} đơn)</span>
         </h2>
         
@@ -280,7 +296,7 @@ const OrdersManagement = () => {
                       {col.label}
                     </h3>
                   </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-gray-200 text-gray-700">
+                  <span className="px-2.5 py-0.5 rounded-full text-xs bg-gray-200 text-gray-700">
                     {colOrders.length}
                   </span>
                 </div>
@@ -312,7 +328,7 @@ const OrdersManagement = () => {
                                   {formatDate(order.created_at)}
                                 </span>
                               </div>
-                              <span className="font-extrabold text-red-600 text-sm whitespace-nowrap">
+                              <span className="text-red-600 text-sm whitespace-nowrap">
                                 {formatPrice(order.total_amount)}
                               </span>
                             </div>

@@ -13,7 +13,8 @@ import {
   ChevronRight,
   History,
   Image,
-  MessageSquare
+  MessageSquare,
+  BarChart2
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import NotificationDropdown from '../components/common/NotificationDropdown';
@@ -37,7 +38,8 @@ const AdminLayout = () => {
     {
       title: 'TỔNG QUAN',
       items: [
-        { name: 'Dashboard Thống kê', path: '/admin', icon: LayoutDashboard, exact: true }
+        { name: 'Vận hành hôm nay', path: '/admin', icon: LayoutDashboard, exact: true },
+        { name: 'Thống kê & Báo cáo', path: '/admin/analytics', icon: BarChart2 }
       ]
     },
     {

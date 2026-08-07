@@ -74,10 +74,7 @@ const CategoriesManagement = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 tracking-tight">Quản lý Danh mục</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Phân loại các nhóm thực đơn Pizza, Đồ uống, Món ăn kèm...
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Quản lý Danh mục</h2>
         </div>
         <button
           type="button"

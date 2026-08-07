@@ -78,8 +78,7 @@ const CustomersManagement = () => {
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Khách hàng thành viên</h1>
-          <p className="text-sm text-gray-500 mt-1">Quản lý và theo dõi thông tin người dùng</p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Khách hàng thành viên</h2>
         </div>
         
         <div className="relative">
@@ -135,7 +134,7 @@ const CustomersManagement = () => {
                     <td className="px-6 py-4 text-center font-medium text-gray-700">
                       {customer.total_orders}
                     </td>
-                    <td className="px-6 py-4 text-right font-bold text-gray-900">
+                    <td className="px-6 py-4 text-right text-gray-900">
                       {formatCurrency(customer.total_spent)}
                     </td>
                     <td className="px-6 py-4 text-center">

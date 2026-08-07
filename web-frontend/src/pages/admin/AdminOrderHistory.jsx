@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ordersAPI from '../../api/ordersAPI';
 import { RefreshCw, Search, X, Filter } from 'lucide-react';
 import OrderDetailModal from '../../components/admin/OrderDetailModal';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 
 const AdminOrderHistory = () => {
   const [orders, setOrders] = useState([]);
@@ -10,10 +11,17 @@ const AdminOrderHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // all, completed, cancelled
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const { latestMessage } = useWebSocket() || {};
 
   useEffect(() => {
     fetchOrders();
   }, []);
+
+  useEffect(() => {
+    if (latestMessage && (latestMessage.type === 'order_updated' || latestMessage.type === 'order_status_updated' || latestMessage.type === 'order_update' || latestMessage.type === 'new_order')) {
+      fetchOrders();
+    }
+  }, [latestMessage]);
 
   const fetchOrders = async () => {
     try {
@@ -53,9 +61,6 @@ const AdminOrderHistory = () => {
   // Stats Calculations (History only)
   const completedOrdersCount = historyOrders.filter((o) => o.status === 'completed').length;
   const cancelledOrdersCount = historyOrders.filter((o) => o.status === 'cancelled').length;
-  const totalRevenue = historyOrders
-    .filter((o) => o.status === 'completed')
-    .reduce((acc, curr) => acc + (curr.total_amount || 0), 0);
 
   // Search and Status filter
   const filteredOrders = historyOrders.filter((o) => {
@@ -71,7 +76,12 @@ const AdminOrderHistory = () => {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Header section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Lịch sử giao dịch</h2>
+      </div>
+
       {/* Tầng 1: Stats Items */}
       <div className="bg-white px-4 py-4 rounded-xl border border-gray-200 shadow-2xs flex flex-wrap items-center gap-4 sm:gap-6 text-sm divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
         <div className="flex items-center gap-3 py-1 flex-1 min-w-[150px]">
@@ -80,7 +90,7 @@ const AdminOrderHistory = () => {
           </div>
           <div>
             <span className="text-[11px] font-bold uppercase text-gray-500 block">Đơn Hoàn Thành</span>
-            <span className="text-xl font-extrabold text-gray-900">{completedOrdersCount}</span>
+            <span className="text-xl text-gray-900">{completedOrdersCount}</span>
           </div>
         </div>
         <div className="flex items-center gap-3 sm:pl-6 py-1 flex-1 min-w-[150px]">
@@ -89,28 +99,18 @@ const AdminOrderHistory = () => {
           </div>
           <div>
             <span className="text-[11px] font-bold uppercase text-gray-500 block">Đơn Đã Hủy</span>
-            <span className="text-xl font-extrabold text-gray-900">{cancelledOrdersCount}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 sm:pl-6 py-1 flex-1 min-w-[200px]">
-          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center border border-blue-100">
-            <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-          </div>
-          <div>
-            <span className="text-[11px] font-bold uppercase text-gray-500 block">Tổng Doanh Thu</span>
-            <span className="text-xl font-extrabold text-emerald-600">{formatPrice(totalRevenue)}</span>
+            <span className="text-xl text-gray-900">{cancelledOrdersCount}</span>
           </div>
         </div>
       </div>
 
       {/* Tầng 2: Toolbar (Search & Filter) */}
       <div className="bg-white p-3 rounded-xl border border-gray-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-sm font-bold text-gray-800 tracking-tight pl-2 flex items-center gap-2">
-          Lịch sử giao dịch 
+        <div className="pl-2 flex items-center gap-2">
           <span className="text-gray-500 font-medium text-xs px-2 py-0.5 bg-gray-100 rounded-full">
             {filteredOrders.length} kết quả
           </span>
-        </h2>
+        </div>
         
         <div className="flex flex-col sm:flex-row items-center gap-2">
           {/* Status Filter */}
@@ -200,7 +200,7 @@ const AdminOrderHistory = () => {
                   filteredOrders.map((order) => (
                     <tr key={order.id} className="hover:bg-gray-50/50 transition">
                       <td className="px-5 py-3.5">
-                        <div className="font-extrabold text-gray-900 text-sm">{order.order_code}</div>
+                        <div className="font-bold text-gray-900 text-sm">{order.order_code}</div>
                         <div className="text-xs text-gray-500 mt-0.5">{formatDate(order.created_at)}</div>
                       </td>
                       <td className="px-5 py-3.5">
@@ -212,7 +212,7 @@ const AdminOrderHistory = () => {
                           {order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0} món
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 font-extrabold text-gray-900">
+                      <td className="px-5 py-3.5 text-gray-900">
                         {formatPrice(order.total_amount)}
                       </td>
                       <td className="px-5 py-3.5">

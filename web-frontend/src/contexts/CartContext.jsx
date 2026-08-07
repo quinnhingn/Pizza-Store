@@ -62,7 +62,7 @@ export const CartProvider = ({ children }) => {
   // Đồng bộ guest_cart lên server ngay sau khi đăng nhập
   useEffect(() => {
     const syncGuestCartToServer = async () => {
-      if (isAuthenticated) {
+      if (isAuthenticated && user?.role === 'customer') {
         const guestItems = getGuestCart();
         if (guestItems.length > 0) {
           try {

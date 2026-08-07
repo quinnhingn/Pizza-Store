@@ -36,11 +36,10 @@ const ReviewsManagement = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900 flex items-center gap-2">
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
             <MessageSquare className="w-7 h-7 text-red-600" />
             Quản lý Đánh giá
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">Kiểm duyệt và quản lý các đánh giá từ khách hàng theo từng món ăn</p>
+          </h2>
         </div>
       </div>
 
@@ -77,7 +76,7 @@ const ReviewsManagement = () => {
                   </div>
                   
                   <div className="flex-1 flex flex-col">
-                    <h3 className="font-extrabold text-gray-900 text-base line-clamp-2 mb-2 group-hover:text-red-600 transition-colors">
+                    <h3 className="font-bold text-gray-900 text-base line-clamp-2 mb-2 group-hover:text-red-600 transition-colors">
                       {product.product_name}
                     </h3>
                     

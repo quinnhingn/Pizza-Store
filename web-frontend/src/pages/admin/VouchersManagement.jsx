@@ -244,14 +244,11 @@ const VouchersManagement = () => {
       {/* Header section */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
         <div>
-          <h1 className="text-2xl font-black text-gray-900 tracking-tight">Quản lý Khuyến mãi & Voucher</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Thiết lập mã giảm giá, theo dõi tiến độ sử dụng và gửi tặng ưu đãi tới khách hàng.
-          </p>
+          <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Quản lý Khuyến mãi & Voucher</h2>
         </div>
         <button
           onClick={handleOpenAddForm}
-          className="bg-red-600 hover:bg-red-700 active:scale-95 text-white font-semibold px-5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center"
+          className="bg-gray-900 hover:bg-gray-800 active:scale-95 text-white font-semibold px-5 py-2.5 rounded-xl shadow-sm hover:shadow transition-all text-sm flex items-center justify-center"
         >
           Thêm voucher mới
         </button>
@@ -296,7 +293,7 @@ const VouchersManagement = () => {
 
                   return (
                     <tr key={v.id} className="hover:bg-gray-50/70 transition-colors">
-                      <td className="py-4 px-4 font-black text-gray-900 tracking-wide">
+                      <td className="py-4 px-4 text-gray-900 tracking-wide">
                         <span className="bg-red-50 text-red-700 px-2.5 py-1 rounded-lg border border-red-100">
                           {v.code}
                         </span>
