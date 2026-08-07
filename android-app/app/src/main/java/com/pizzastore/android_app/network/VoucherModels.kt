@@ -12,7 +12,9 @@ data class VoucherResponse(
     val discount_percent: Double?,
     val discount_amount: Double?,
     val max_discount: Double?,
-    val min_order_value: Double?
+    val min_order_value: Double?,
+    val start_date: String?,
+    val end_date: String?
 )
 
 data class VoucherValidateResponse(

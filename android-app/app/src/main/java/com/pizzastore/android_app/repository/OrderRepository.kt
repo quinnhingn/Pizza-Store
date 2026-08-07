@@ -43,4 +43,44 @@ class OrderRepository(private val apiService: OrderApiService) {
             Result.failure(Exception(e.message ?: "Unknown error occurred"))
         }
     }
+
+    suspend fun getMyOrders(): Result<List<OrderResponse>> {
+        return try {
+            val response = apiService.getMyOrders()
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Lỗi tải lịch sử đơn hàng"))
+        }
+    }
+
+    suspend fun cancelOrder(orderId: Int): Result<OrderResponse> {
+        return try {
+            val response = apiService.cancelOrder(orderId)
+            Result.success(response)
+        } catch (e: HttpException) {
+            try {
+                val errorBody = e.response()?.errorBody()?.string()
+                if (errorBody != null) {
+                    val json = JSONObject(errorBody)
+                    val detail = json.optString("detail", "HTTP error: ${e.code()}")
+                    Result.failure(Exception(detail))
+                } else {
+                    Result.failure(Exception("HTTP error: ${e.code()}"))
+                }
+            } catch (jsonEx: Exception) {
+                Result.failure(Exception("HTTP error: ${e.code()}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Lỗi hủy đơn hàng"))
+        }
+    }
+
+    suspend fun confirmOrderReceived(orderId: Int): Result<OrderResponse> {
+        return try {
+            val response = apiService.confirmOrderReceived(orderId)
+            Result.success(response)
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Lỗi xác nhận nhận hàng"))
+        }
+    }
 }

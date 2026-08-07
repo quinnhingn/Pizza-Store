@@ -1,5 +1,12 @@
 package com.pizzastore.android_app.ui.screens
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import com.pizzastore.android_app.viewmodel.OrderHistoryState
+import com.pizzastore.android_app.viewmodel.OrderHistoryViewModel
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,14 +17,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun OrderHistoryScreen(onBackClick: () -> Unit) {
+fun OrderHistoryScreen(
+    viewModel: OrderHistoryViewModel? = null,
+    onBackClick: () -> Unit
+) {
+    val state by viewModel?.state?.collectAsState(initial = OrderHistoryState.Loading) ?: mutableStateOf(OrderHistoryState.Loading)
+
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
                 title = { Text("Lịch sử mua hàng", fontWeight = FontWeight.Bold) },
@@ -27,7 +40,7 @@ fun OrderHistoryScreen(onBackClick: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.White
                 )
             )
         }
@@ -40,13 +53,42 @@ fun OrderHistoryScreen(onBackClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
         ) {
-            items(3) { index ->
-                OrderCard(
-                    orderId = "DH${1000 + index}",
-                    date = "28/07/2026",
-                    total = 250000.0 - (index * 20000),
-                    status = if (index == 0) "Đang giao" else "Đã giao"
-                )
+            when (val currentState = state) {
+                is OrderHistoryState.Loading -> {
+                    item {
+                        CircularProgressIndicator(modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally))
+                    }
+                }
+                is OrderHistoryState.Error -> {
+                    item {
+                        Text("Lỗi: ${currentState.message}", color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally))
+                    }
+                }
+                is OrderHistoryState.Success -> {
+                    if (currentState.orders.isEmpty()) {
+                        item {
+                            Text("Chưa có đơn hàng nào.", modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally))
+                        }
+                    } else {
+                        items(currentState.orders.size) { index ->
+                            val order = currentState.orders[index]
+                            val dateStr = order.created_at?.take(10)?.split("-")?.reversed()?.joinToString("/") ?: ""
+                            val statusMap = mapOf(
+                                "pending" to "Chờ xác nhận",
+                                "confirmed" to "Đã xác nhận",
+                                "shipping" to "Đang giao",
+                                "completed" to "Đã giao",
+                                "cancelled" to "Đã hủy"
+                            )
+                            OrderCard(
+                                orderId = order.order_code,
+                                date = dateStr,
+                                total = order.total_amount,
+                                status = statusMap[order.status] ?: order.status
+                            )
+                        }
+                    }
+                }
             }
         }
     }

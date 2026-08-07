@@ -2,6 +2,7 @@ package com.pizzastore.android_app.repository
 
 import com.pizzastore.android_app.network.AuthApiService
 import com.pizzastore.android_app.network.UserLogin
+import com.pizzastore.android_app.network.UserRegister
 import com.pizzastore.android_app.utils.TokenManager
 import retrofit2.HttpException
 
@@ -16,6 +17,21 @@ class AuthRepository(
                 // Save token
                 tokenManager.saveToken(response.data.access_token)
                 Result.success("Login successful")
+            } else {
+                Result.failure(Exception(response.message))
+            }
+        } catch (e: HttpException) {
+            Result.failure(Exception("HTTP error: ${e.code()}"))
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Unknown error occurred"))
+        }
+    }
+
+    suspend fun register(userRegister: UserRegister): Result<String> {
+        return try {
+            val response = apiService.register(userRegister)
+            if (response.status == "success") {
+                Result.success("Register successful")
             } else {
                 Result.failure(Exception(response.message))
             }

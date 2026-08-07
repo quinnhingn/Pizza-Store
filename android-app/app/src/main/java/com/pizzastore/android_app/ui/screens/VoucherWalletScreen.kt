@@ -1,5 +1,12 @@
 package com.pizzastore.android_app.ui.screens
 
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import com.pizzastore.android_app.viewmodel.VoucherWalletState
+import com.pizzastore.android_app.viewmodel.VoucherWalletViewModel
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -10,14 +17,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun VoucherWalletScreen(onBackClick: () -> Unit) {
+fun VoucherWalletScreen(
+    viewModel: VoucherWalletViewModel? = null,
+    onBackClick: () -> Unit
+) {
+    val state by viewModel?.state?.collectAsState(initial = VoucherWalletState.Loading) ?: mutableStateOf(VoucherWalletState.Loading)
+    
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
                 title = { Text("Ví Voucher", fontWeight = FontWeight.Bold) },
@@ -27,7 +40,7 @@ fun VoucherWalletScreen(onBackClick: () -> Unit) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.White
                 )
             )
         }
@@ -40,12 +53,39 @@ fun VoucherWalletScreen(onBackClick: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 24.dp)
         ) {
-            items(2) { index ->
-                VoucherCard(
-                    code = if (index == 0) "GIAM20K" else "FREESHIP",
-                    description = if (index == 0) "Giảm 20,000đ cho đơn từ 150,000đ" else "Miễn phí vận chuyển cho đơn từ 200,000đ",
-                    validUntil = "31/12/2026"
-                )
+            when (val currentState = state) {
+                is VoucherWalletState.Loading -> {
+                    item {
+                        CircularProgressIndicator(modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally))
+                    }
+                }
+                is VoucherWalletState.Error -> {
+                    item {
+                        Text("Lỗi: ${currentState.message}", color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally))
+                    }
+                }
+                is VoucherWalletState.Success -> {
+                    if (currentState.vouchers.isEmpty()) {
+                        item {
+                            Text("Chưa có voucher nào.", modifier = Modifier.fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally))
+                        }
+                    } else {
+                        items(currentState.vouchers.size) { index ->
+                            val voucher = currentState.vouchers[index]
+                            val desc = buildString {
+                                if (voucher.discount_percent != null) append("Giảm ${voucher.discount_percent}% ")
+                                else if (voucher.discount_amount != null) append("Giảm ${String.format("%,.0f", voucher.discount_amount)}đ ")
+                                
+                                if (voucher.min_order_value != null) append("cho đơn từ ${String.format("%,.0f", voucher.min_order_value)}đ")
+                            }
+                            VoucherCard(
+                                code = voucher.code,
+                                description = desc,
+                                validUntil = voucher.end_date?.take(10)?.split("-")?.reversed()?.joinToString("/") ?: "Vô thời hạn"
+                            )
+                        }
+                    }
+                }
             }
         }
     }

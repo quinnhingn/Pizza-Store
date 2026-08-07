@@ -8,7 +8,8 @@ interface ProductApiService {
     @GET("api/public/products")
     suspend fun getProducts(
         @Query("page") page: Int = 1,
-        @Query("page_size") pageSize: Int = 20
+        @Query("page_size") pageSize: Int = 20,
+        @Query("category_id") categoryId: Int? = null
     ): PaginatedProductResponse
     
     @GET("api/public/products/{id}")

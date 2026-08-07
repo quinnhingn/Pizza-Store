@@ -83,6 +83,7 @@ fun CheckoutScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
                 title = { Text("Thanh toán", fontWeight = FontWeight.Bold) },
@@ -92,7 +93,7 @@ fun CheckoutScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.White
                 )
             )
         },

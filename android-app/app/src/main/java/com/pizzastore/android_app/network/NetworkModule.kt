@@ -41,4 +41,16 @@ object NetworkModule {
     fun provideOrderApiService(retrofit: Retrofit): OrderApiService {
         return retrofit.create(OrderApiService::class.java)
     }
+
+    fun provideBannerApiService(retrofit: Retrofit): BannerApiService {
+        return retrofit.create(BannerApiService::class.java)
+    }
+
+    fun provideCategoryApiService(retrofit: Retrofit): CategoryApiService {
+        return retrofit.create(CategoryApiService::class.java)
+    }
+
+    fun provideUserApiService(retrofit: Retrofit): UserApiService {
+        return retrofit.create(UserApiService::class.java)
+    }
 }

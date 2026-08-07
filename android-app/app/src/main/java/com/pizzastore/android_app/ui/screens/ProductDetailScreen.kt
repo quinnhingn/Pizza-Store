@@ -63,6 +63,7 @@ fun ProductDetailScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         bottomBar = {
             if (state is ProductDetailState.Success) {
                 Surface(
@@ -124,7 +125,7 @@ fun ProductDetailScreen(
             }
         }
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.background)) {
+        Box(modifier = Modifier.fillMaxSize().padding(padding).background(Color.White)) {
             when (val currentState = state) {
                 is ProductDetailState.Loading -> {
                     CircularProgressIndicator(

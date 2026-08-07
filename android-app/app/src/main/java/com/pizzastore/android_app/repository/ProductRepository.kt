@@ -6,9 +6,9 @@ import retrofit2.HttpException
 
 class ProductRepository(private val apiService: ProductApiService) {
     
-    suspend fun getProducts(page: Int = 1): Result<PaginatedProductResponse> {
+    suspend fun getProducts(page: Int, categoryId: Int? = null, pageSize: Int = 20): Result<PaginatedProductResponse> {
         return try {
-            val response = apiService.getProducts(page = page, pageSize = 20)
+            val response = apiService.getProducts(page = page, pageSize = pageSize, categoryId = categoryId)
             Result.success(response)
         } catch (e: HttpException) {
             Result.failure(Exception("HTTP error: ${e.code()}"))

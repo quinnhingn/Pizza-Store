@@ -9,12 +9,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -22,6 +24,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pizzastore.android_app.ui.components.GradientButton
+import com.pizzastore.android_app.ui.theme.Orange600
+import com.pizzastore.android_app.ui.theme.Red600
 import com.pizzastore.android_app.viewmodel.LoginState
 import com.pizzastore.android_app.viewmodel.LoginViewModel
 
@@ -29,7 +34,9 @@ import com.pizzastore.android_app.viewmodel.LoginViewModel
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel,
-    onLoginSuccess: () -> Unit
+    onLoginSuccess: () -> Unit,
+    onRegisterClick: () -> Unit,
+    onBackClick: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -53,21 +60,27 @@ fun LoginScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Gradient background top section
+    Scaffold(
+        containerColor = Color.White
+    ) { paddingValues ->
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.4f)
-                .background(
-                    brush = Brush.verticalGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f)
-                        )
-                    )
-                )
-        )
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+        
+        IconButton(
+            onClick = onBackClick,
+            modifier = Modifier
+                .statusBarsPadding()
+                .padding(start = 8.dp, top = 8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.ArrowBack,
+                contentDescription = "Back",
+                tint = Color.Black
+            )
+        }
 
         Column(
             modifier = Modifier
@@ -80,8 +93,8 @@ fun LoginScreen(
             // Logo circle
             Surface(
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.onPrimary,
-                shadowElevation = 8.dp,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                shadowElevation = 0.dp,
                 modifier = Modifier.size(96.dp)
             ) {
                 Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
@@ -97,14 +110,14 @@ fun LoginScreen(
             Text(
                 text = "Pizza Store",
                 style = MaterialTheme.typography.headlineLarge,
-                color = MaterialTheme.colorScheme.onPrimary,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
                 text = "Đặt món pizza yêu thích của bạn",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f),
+                color = Color.Gray,
                 modifier = Modifier.padding(top = 4.dp)
             )
 
@@ -114,8 +127,9 @@ fun LoginScreen(
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 8.dp
+                color = Color.White,
+                shadowElevation = 0.dp,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEEEEEE))
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
@@ -170,21 +184,14 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    Button(
-                        onClick = { viewModel.login(email, password) },
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        enabled = email.isNotBlank() && password.isNotBlank() && loginState !is LoginState.Loading,
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        if (loginState is LoginState.Loading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(28.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 3.dp
-                            )
-                        } else {
-                            Text("Đăng nhập", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        }
+                    if (loginState is LoginState.Loading) {
+                        CircularProgressIndicator(color = Red600)
+                    } else {
+                        GradientButton(
+                            text = "Đăng nhập",
+                            onClick = { viewModel.login(email, password) },
+                            enabled = email.isNotBlank() && password.isNotBlank()
+                        )
                     }
                 }
             }
@@ -200,15 +207,16 @@ fun LoginScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                TextButton(onClick = { /* TODO: Register */ }) {
+                TextButton(onClick = onRegisterClick) {
                     Text(
                         text = "Đăng ký ngay",
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
+                        color = Red600
                     )
                 }
             }
+        }
         }
     }
 }

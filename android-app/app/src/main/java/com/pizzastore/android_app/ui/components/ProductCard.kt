@@ -5,8 +5,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -14,8 +12,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.pizzastore.android_app.network.Product
 
@@ -27,22 +27,28 @@ fun ProductCard(
     modifier: Modifier = Modifier
 ) {
     Card(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .width(300.dp)
+            .height(130.dp)
+            .padding(end = 4.dp, bottom = 4.dp), // Slight padding for shadow
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
         onClick = onClick
     ) {
-        Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             val imageUrl = if (product.image_url.isNullOrEmpty()) null
             else if (product.image_url.startsWith("http")) product.image_url
             else "http://10.0.2.2:8000/${product.image_url.removePrefix("/")}"
 
-            // Top: Image with overlays (approx 60-65% of card height)
+            // Image filling the left side
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(140.dp)
+                    .fillMaxHeight()
+                    .aspectRatio(1f) // Square image
             ) {
                 AsyncImage(
                     model = imageUrl,
@@ -50,144 +56,90 @@ fun ProductCard(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-
-                // Rating badge (Top Left)
-                Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                
+                if (!product.is_available) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
+                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
                     ) {
                         Text(
-                            text = "4.8",
+                            text = "Hết món",
                             style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = "Rating",
-                            tint = Color(0xFFFFB300),
-                            modifier = Modifier.size(12.dp).padding(start = 2.dp)
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(vertical = 2.dp)
                         )
                     }
-                }
-
-                // Favorite button (Top Right)
-                Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                    shape = CircleShape,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(28.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-
-                // Status badge (Bottom Left)
-                val statusText = if (product.is_available) "Còn món" else "Hết món"
-                val statusColor = if (product.is_available) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer
-                val statusTextColor = if (product.is_available) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onErrorContainer
-
-                Surface(
-                    color = statusColor.copy(alpha = 0.95f),
-                    shape = RoundedCornerShape(topEnd = 8.dp),
-                    modifier = Modifier.align(Alignment.BottomStart)
-                ) {
-                    Text(
-                        text = statusText,
-                        color = statusTextColor,
-                        style = MaterialTheme.typography.labelSmall,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
                 }
             }
 
-            // Bottom: Info
+            // Info Column
             Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp)
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 12.dp),
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Name (Max 2 lines, ellipsis)
-                Text(
-                    text = product.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Price & Variants
-                if (product.sizes.isNotEmpty()) {
+                Column {
                     Text(
-                        text = "Từ ${String.format("%,.0f", product.price)}đ",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.ExtraBold
+                        text = product.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        color = Color.Black
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
                     
-                    val sizeNames = product.sizes.joinToString(" • ") { it.size_name }
-                    Text(
-                        text = "${product.sizes.size} kích cỡ: $sizeNames",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                } else {
-                    Text(
-                        text = "${String.format("%,.0f", product.price)}đ",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.ExtraBold
-                    )
+                    if (!product.description.isNullOrEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = product.description,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            fontSize = 11.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // CTA Button (Chọn món)
-                Button(
-                    onClick = onClick,
+                Row(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (product.is_available) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = if (product.is_available) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                    ),
-                    enabled = product.is_available
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add",
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Chọn món",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Column {
+                        Text(
+                            text = "Chỉ từ",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray,
+                            fontSize = 10.sp
+                        )
+                        Text(
+                            text = "${String.format("%,.0f", product.price)} đ",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary, // Red price
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
+
+                    // Add button
+                    Surface(
+                        shape = CircleShape,
+                        color = if (product.is_available) MaterialTheme.colorScheme.primary else Color.LightGray,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add",
+                                tint = Color.White,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
                 }
             }
         }

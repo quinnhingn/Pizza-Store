@@ -36,7 +36,7 @@ import com.pizzastore.android_app.viewmodel.CartViewModel
 @Composable
 fun CartScreen(
     viewModel: CartViewModel,
-    onCheckoutClick: () -> Unit,
+    onCheckoutClick: (String?) -> Unit,
     onBackClick: () -> Unit,
     onEditClick: (Int, Int) -> Unit
 ) {
@@ -59,6 +59,7 @@ fun CartScreen(
     }
 
     Scaffold(
+        containerColor = Color.White,
         topBar = {
             TopAppBar(
                 title = { Text("Giỏ hàng", fontWeight = FontWeight.Bold) },
@@ -68,7 +69,7 @@ fun CartScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = Color.White
                 )
             )
         },
@@ -102,7 +103,7 @@ fun CartScreen(
                         }
                         
                         Button(
-                            onClick = onCheckoutClick,
+                            onClick = { onCheckoutClick(voucherCode) },
                             modifier = Modifier
                                 .weight(1.2f)
                                 .height(56.dp),

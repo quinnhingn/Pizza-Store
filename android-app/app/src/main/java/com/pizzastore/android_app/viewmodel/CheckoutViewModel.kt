@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pizzastore.android_app.network.OrderCreateRequest
 import com.pizzastore.android_app.repository.OrderRepository
+import com.pizzastore.android_app.repository.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -17,7 +18,8 @@ sealed class CheckoutState {
 }
 
 class CheckoutViewModel(
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val userRepository: UserRepository
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<CheckoutState>(CheckoutState.Idle)
@@ -34,6 +36,33 @@ class CheckoutViewModel(
     
     private val _note = MutableStateFlow("")
     val note: StateFlow<String> = _note
+
+    init {
+        loadDefaultAddress()
+    }
+
+    private fun loadDefaultAddress() {
+        viewModelScope.launch {
+            try {
+                val addresses = userRepository.getMyAddresses()
+                val defaultAddress = addresses.firstOrNull { it.is_default } ?: addresses.firstOrNull()
+                if (defaultAddress != null) {
+                    _fullName.value = defaultAddress.full_name
+                    _phone.value = defaultAddress.phone
+                    
+                    val fullAddress = buildString {
+                        append(defaultAddress.address_line)
+                        if (!defaultAddress.ward.isNullOrBlank()) append(", ${defaultAddress.ward}")
+                        if (!defaultAddress.district.isNullOrBlank()) append(", ${defaultAddress.district}")
+                        append(", ${defaultAddress.province}")
+                    }
+                    _address.value = fullAddress
+                }
+            } catch (e: Exception) {
+                // Ignore, let user fill manually if fetch fails
+            }
+        }
+    }
 
     fun onFullNameChange(value: String) { _fullName.value = value }
     fun onPhoneChange(value: String) { _phone.value = value }
@@ -72,12 +101,13 @@ class CheckoutViewModel(
 }
 
 class CheckoutViewModelFactory(
-    private val orderRepository: OrderRepository
+    private val orderRepository: OrderRepository,
+    private val userRepository: UserRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(CheckoutViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return CheckoutViewModel(orderRepository) as T
+            return CheckoutViewModel(orderRepository, userRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
