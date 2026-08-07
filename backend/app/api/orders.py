@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -73,7 +73,8 @@ async def create_order(
                     detail="Bạn đã sử dụng mã giảm giá này rồi. Mỗi mã chỉ áp dụng 1 lần cho 1 khách hàng."
                 )
 
-            now = datetime.now()
+            VN_TZ = timezone(timedelta(hours=7))
+            now = datetime.now(VN_TZ)
             if now < voucher.start_date or now > voucher.end_date:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -127,8 +128,8 @@ async def create_order(
         if total_amount < Decimal("0.00"):
             total_amount = Decimal("0.00")
 
-        # 4. Create Order
-        order_code = f"ORD-{int(datetime.now().timestamp())}-{current_user.id}"
+        VN_TZ = timezone(timedelta(hours=7))
+        order_code = f"ORD-{int(datetime.now(VN_TZ).timestamp())}-{current_user.id}"
         new_order = Order(
             user_id=current_user.id,
             order_code=order_code,

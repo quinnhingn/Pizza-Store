@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
@@ -71,7 +71,8 @@ async def validate_voucher(
             message="Mã giảm giá hiện không còn hoạt động."
         )
 
-    now = datetime.now()
+    VN_TZ = timezone(timedelta(hours=7))
+    now = datetime.now(VN_TZ)
     if now < voucher.start_date or now > voucher.end_date:
         return VoucherValidateResponse(
             valid=False,
@@ -387,8 +388,9 @@ async def get_my_saved_vouchers(
 
     active_list = []
     history_list = []
-    from datetime import datetime
-    now_dt = datetime.now()
+    from datetime import datetime, timezone, timedelta
+    VN_TZ = timezone(timedelta(hours=7))
+    now_dt = datetime.now(VN_TZ)
 
     for item in saved_list:
         v_stmt = select(Voucher).where(Voucher.code == item.voucher_code)

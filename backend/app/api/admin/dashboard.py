@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import func, case, text, desc, and_
-from datetime import datetime, timedelta
+from sqlalchemy import func, desc
+from datetime import datetime, timezone, timedelta
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 from app.core.deps import get_db, get_current_user
 from app.models.user import User
@@ -18,6 +18,21 @@ def require_admin(user: User = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return user
 
+class RecentOrder(BaseModel):
+    id: int
+    order_code: str
+    customer_name: str
+    total_amount: float
+    status: str
+    created_at: datetime
+
+class TodayStatsResponse(BaseModel):
+    revenue_today: float
+    orders_today: int
+    pending_orders: int
+    new_customers_today: int
+    recent_orders: List[RecentOrder]
+
 class ChartData(BaseModel):
     date: str
     revenue: float
@@ -29,164 +44,56 @@ class TopProduct(BaseModel):
     total_sold: int
     revenue: float
 
-class RecentOrder(BaseModel):
-    id: int
-    order_code: str
-    customer_name: str
-    total_amount: float
-    status: str
-    created_at: datetime
-
-class DashboardResponse(BaseModel):
+class AnalyticsResponse(BaseModel):
     total_revenue: float
-    revenue_trend: float
     total_orders: int
-    orders_trend: float
-    active_orders: int
-    total_customers: int
-    customers_trend: float
+    avg_order_value: float
+    completion_rate: float
     revenue_chart: List[ChartData]
     top_products: List[TopProduct]
-    recent_orders: List[RecentOrder]
+    status_distribution: Dict[str, int]
 
-def calculate_trend(current: float, previous: float) -> float:
-    if previous == 0:
-        return 100.0 if current > 0 else 0.0
-    return round(((current - previous) / previous) * 100, 1)
 
-@router.get("/", response_model=DashboardResponse)
-async def get_dashboard_stats(
+@router.get("/today", response_model=TodayStatsResponse)
+async def get_today_stats(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
-    today = datetime.now()
-    seven_days_ago = today - timedelta(days=6)
-    fourteen_days_ago = today - timedelta(days=13)
+    VN_TZ = timezone(timedelta(hours=7))
+    now = datetime.now(VN_TZ)
+    start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Helper function to get aggregate stats for a date range
-    async def get_stats_for_period(start_date, end_date):
-        # Revenue
-        rev_stmt = select(func.sum(Order.total_amount)).where(
-            Order.status == 'completed',
-            Order.created_at >= start_date,
-            Order.created_at <= end_date
-        )
-        rev_result = await db.execute(rev_stmt)
-        revenue = float(rev_result.scalar() or 0)
-
-        # Orders
-        ord_stmt = select(func.count(Order.id)).where(
-            Order.created_at >= start_date,
-            Order.created_at <= end_date
-        )
-        ord_result = await db.execute(ord_stmt)
-        orders = ord_result.scalar() or 0
-
-        # Customers
-        cust_stmt = select(func.count(User.id)).where(
-            User.role == 'customer',
-            User.created_at >= start_date,
-            User.created_at <= end_date
-        )
-        cust_result = await db.execute(cust_stmt)
-        customers = cust_result.scalar() or 0
-
-        return revenue, orders, customers
-
-    # Current period (Last 7 days for trend, but total stats are all-time except for trend comparison)
-    # Wait, the UI usually shows Total Revenue of all time, or just this month?
-    # Based on reference UI, "Total Orders", "Total Revenue" usually means "Lifetime" or "This Month".
-    # Let's make the main metrics "Lifetime" and trend based on "Last 7 days vs Previous 7 days".
-    
-    # 1. Lifetime Totals
-    rev_stmt_all = select(func.sum(Order.total_amount)).where(Order.status == 'completed')
-    total_revenue = float((await db.execute(rev_stmt_all)).scalar() or 0)
-
-    ord_stmt_all = select(func.count(Order.id))
-    total_orders = (await db.execute(ord_stmt_all)).scalar() or 0
-
-    cust_stmt_all = select(func.count(User.id)).where(User.role == 'customer')
-    total_customers = (await db.execute(cust_stmt_all)).scalar() or 0
-
-    # 2. Active Orders
-    active_ord_stmt = select(func.count(Order.id)).where(Order.status.in_(['pending', 'processing', 'shipping']))
-    active_orders = (await db.execute(active_ord_stmt)).scalar() or 0
-
-    # 3. Trends (Last 7 days vs Previous 7 days)
-    curr_rev, curr_ord, curr_cust = await get_stats_for_period(seven_days_ago, today)
-    prev_rev, prev_ord, prev_cust = await get_stats_for_period(fourteen_days_ago, seven_days_ago)
-
-    revenue_trend = calculate_trend(curr_rev, prev_rev)
-    orders_trend = calculate_trend(curr_ord, prev_ord)
-    customers_trend = calculate_trend(curr_cust, prev_cust)
-
-    # 4. Revenue Chart (Last 7 days)
-    chart_stmt = (
-        select(
-            func.date(Order.created_at).label("date"),
-            func.sum(Order.total_amount).label("daily_revenue")
-        )
-        .where(Order.status == 'completed', Order.created_at >= seven_days_ago)
-        .group_by(func.date(Order.created_at))
-        .order_by(func.date(Order.created_at))
+    # Doanh thu hôm nay
+    rev_stmt = select(func.sum(Order.total_amount)).where(
+        Order.status == 'completed',
+        Order.created_at >= start_of_today
     )
-    chart_result = await db.execute(chart_stmt)
-    chart_rows = chart_result.all()
-    
-    revenue_dict = {str(row.date): float(row.daily_revenue) for row in chart_rows}
-    revenue_chart = []
-    for i in range(7):
-        current_date = (seven_days_ago + timedelta(days=i)).date()
-        date_str = str(current_date)
-        revenue_chart.append(ChartData(
-            date=current_date.strftime("%d/%m"),
-            revenue=revenue_dict.get(date_str, 0)
-        ))
+    revenue_today = float((await db.execute(rev_stmt)).scalar() or 0)
 
-    # 5. Top 5 Products
-    top_prod_stmt = (
-        select(
-            Product.id,
-            Product.name,
-            Product.image_url,
-            func.sum(OrderItem.quantity).label("total_sold"),
-            func.sum(OrderItem.unit_price * OrderItem.quantity).label("revenue")
-        )
-        .join(OrderItem, OrderItem.product_id == Product.id)
-        .join(Order, Order.id == OrderItem.order_id)
-        .where(Order.status == 'completed')
-        .group_by(Product.id)
-        .order_by(desc("total_sold"))
-        .limit(5)
+    # Đơn mới hôm nay (tất cả trạng thái)
+    ord_stmt = select(func.count(Order.id)).where(Order.created_at >= start_of_today)
+    orders_today = (await db.execute(ord_stmt)).scalar() or 0
+
+    # Khách hàng mới hôm nay
+    start_of_today_naive = start_of_today.replace(tzinfo=None)
+    cust_stmt = select(func.count(User.id)).where(
+        User.role == 'customer',
+        User.created_at >= start_of_today_naive
     )
-    
-    top_prod_result = await db.execute(top_prod_stmt)
-    top_prod_rows = top_prod_result.all()
-    top_products = [
-        TopProduct(
-            id=row.id,
-            name=row.name,
-            image_url=row.image_url,
-            total_sold=row.total_sold or 0,
-            revenue=float(row.revenue or 0)
-        ) for row in top_prod_rows
-    ]
+    new_customers_today = (await db.execute(cust_stmt)).scalar() or 0
 
-    # 6. Recent Orders (Last 5)
+    # Đơn đang chờ xử lý (không tính theo ngày, vì có thể từ hôm qua)
+    pend_stmt = select(func.count(Order.id)).where(Order.status == 'pending')
+    pending_orders = (await db.execute(pend_stmt)).scalar() or 0
+
+    # Danh sách đơn hàng cần chú ý (Mới nhất, trạng thái pending/confirmed/shipping)
     recent_stmt = (
-        select(
-            Order.id,
-            Order.order_code,
-            Order.shipping_full_name,
-            Order.total_amount,
-            Order.status,
-            Order.created_at
-        )
+        select(Order)
+        .where(Order.status.in_(['pending', 'confirmed', 'shipping']))
         .order_by(desc(Order.created_at))
-        .limit(5)
+        .limit(10)
     )
-    recent_result = await db.execute(recent_stmt)
-    recent_rows = recent_result.all()
+    recent_rows = (await db.execute(recent_stmt)).unique().scalars().all()
     recent_orders = [
         RecentOrder(
             id=row.id,
@@ -198,15 +105,107 @@ async def get_dashboard_stats(
         ) for row in recent_rows
     ]
 
-    return DashboardResponse(
+    return TodayStatsResponse(
+        revenue_today=revenue_today,
+        orders_today=orders_today,
+        pending_orders=pending_orders,
+        new_customers_today=new_customers_today,
+        recent_orders=recent_orders
+    )
+
+
+@router.get("/analytics", response_model=AnalyticsResponse)
+async def get_analytics(
+    start_date: str = Query(..., description="ISO date string"),
+    end_date: str = Query(..., description="ISO date string"),
+    db: AsyncSession = Depends(get_db),
+    admin: User = Depends(require_admin)
+):
+    start = datetime.fromisoformat(start_date.replace('Z', '+00:00')).replace(tzinfo=None)
+    end = datetime.fromisoformat(end_date.replace('Z', '+00:00')).replace(tzinfo=None)
+
+    # Tổng quan
+    rev_stmt = select(func.sum(Order.total_amount)).where(
+        Order.status == 'completed', 
+        Order.created_at >= start, 
+        Order.created_at <= end
+    )
+    total_revenue = float((await db.execute(rev_stmt)).scalar() or 0)
+
+    ord_stmt = select(func.count(Order.id)).where(Order.created_at >= start, Order.created_at <= end)
+    total_orders = (await db.execute(ord_stmt)).scalar() or 0
+
+    avg_order_value = 0.0
+    completed_stmt = select(func.count(Order.id)).where(
+        Order.status == 'completed', 
+        Order.created_at >= start, 
+        Order.created_at <= end
+    )
+    completed_orders = (await db.execute(completed_stmt)).scalar() or 0
+    if completed_orders > 0:
+        avg_order_value = total_revenue / completed_orders
+
+    completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0.0
+
+    # Phân bổ trạng thái
+    status_stmt = select(Order.status, func.count(Order.id)).where(
+        Order.created_at >= start, 
+        Order.created_at <= end
+    ).group_by(Order.status)
+    status_rows = (await db.execute(status_stmt)).all()
+    status_distribution = {row[0]: row[1] for row in status_rows}
+
+    # Top products
+    top_prod_stmt = (
+        select(
+            Product.id,
+            Product.name,
+            Product.image_url,
+            func.sum(OrderItem.quantity).label("total_sold"),
+            func.sum(OrderItem.unit_price * OrderItem.quantity).label("revenue")
+        )
+        .join(OrderItem, OrderItem.product_id == Product.id)
+        .join(Order, Order.id == OrderItem.order_id)
+        .where(Order.status == 'completed', Order.created_at >= start, Order.created_at <= end)
+        .group_by(Product.id)
+        .order_by(desc("total_sold"))
+        .limit(5)
+    )
+    top_prod_rows = (await db.execute(top_prod_stmt)).all()
+    top_products = [
+        TopProduct(
+            id=row.id,
+            name=row.name,
+            image_url=row.image_url,
+            total_sold=row.total_sold or 0,
+            revenue=float(row.revenue or 0)
+        ) for row in top_prod_rows
+    ]
+
+    # Revenue chart (theo ngày)
+    chart_stmt = (
+        select(
+            func.date(Order.created_at).label("date"),
+            func.sum(Order.total_amount).label("daily_revenue")
+        )
+        .where(Order.status == 'completed', Order.created_at >= start, Order.created_at <= end)
+        .group_by(func.date(Order.created_at))
+        .order_by(func.date(Order.created_at))
+    )
+    chart_rows = (await db.execute(chart_stmt)).all()
+    revenue_chart = [
+        ChartData(
+            date=str(row.date),
+            revenue=float(row.daily_revenue)
+        ) for row in chart_rows
+    ]
+
+    return AnalyticsResponse(
         total_revenue=total_revenue,
-        revenue_trend=revenue_trend,
         total_orders=total_orders,
-        orders_trend=orders_trend,
-        active_orders=active_orders,
-        total_customers=total_customers,
-        customers_trend=customers_trend,
+        avg_order_value=avg_order_value,
+        completion_rate=completion_rate,
         revenue_chart=revenue_chart,
         top_products=top_products,
-        recent_orders=recent_orders
+        status_distribution=status_distribution
     )
