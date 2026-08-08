@@ -34,6 +34,7 @@ import com.pizzastore.android_app.repository.CategoryRepository
 import com.pizzastore.android_app.repository.UserRepository
 import com.pizzastore.android_app.network.UserApiService
 import com.pizzastore.android_app.ui.screens.HomeScreen
+import com.pizzastore.android_app.ui.screens.MenuScreen
 import com.pizzastore.android_app.ui.screens.LoginScreen
 import com.pizzastore.android_app.ui.screens.ProductDetailScreen
 import com.pizzastore.android_app.ui.screens.CartScreen
@@ -44,6 +45,7 @@ import com.pizzastore.android_app.ui.screens.OrderHistoryScreen
 import com.pizzastore.android_app.ui.screens.VoucherWalletScreen
 import com.pizzastore.android_app.ui.screens.WelcomeScreen
 import com.pizzastore.android_app.ui.screens.RegisterScreen
+import com.pizzastore.android_app.ui.screens.ChatbotScreen
 import com.pizzastore.android_app.ui.theme.AndroidappTheme
 import com.pizzastore.android_app.utils.TokenManager
 import com.pizzastore.android_app.viewmodel.HomeViewModel
@@ -80,6 +82,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var bannerRepository: BannerRepository
     private lateinit var categoryRepository: CategoryRepository
     private lateinit var userRepository: UserRepository
+    private lateinit var webSocketManager: com.pizzastore.android_app.network.WebSocketManager
     
     private val loginViewModel: LoginViewModel by viewModels {
         LoginViewModelFactory(authRepository)
@@ -125,6 +128,8 @@ class MainActivity : ComponentActivity() {
         val userApiService = retrofit.create(UserApiService::class.java)
         userRepository = UserRepository(userApiService)
 
+        webSocketManager = com.pizzastore.android_app.network.WebSocketManager(okHttpClient, tokenManager)
+
         enableEdgeToEdge()
         setContent {
             AndroidappTheme {
@@ -137,6 +142,7 @@ class MainActivity : ComponentActivity() {
                     orderRepository = orderRepository,
                     voucherRepository = voucherRepository,
                     userRepository = userRepository,
+                    webSocketManager = webSocketManager,
                     tokenManager = tokenManager,
                     initialRoute = if (tokenManager.getToken() != null) "home" else "welcome"
                 )
@@ -155,6 +161,7 @@ fun AppNavigation(
     orderRepository: OrderRepository,
     voucherRepository: VoucherRepository,
     userRepository: UserRepository,
+    webSocketManager: com.pizzastore.android_app.network.WebSocketManager,
     tokenManager: TokenManager,
     initialRoute: String
 ) {
@@ -169,14 +176,19 @@ fun AppNavigation(
         }
     }
 
-    Scaffold(
+    LaunchedEffect(tokenManager.getToken()) {
+        if (tokenManager.getToken() != null) {
+            webSocketManager.connect()
+        } else {
+            webSocketManager.disconnect()
+        }
+    }
+
+    NavHost(
+        navController = navController,
+        startDestination = initialRoute,
         modifier = Modifier.fillMaxSize()
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = initialRoute,
-            modifier = Modifier.padding(innerPadding)
-        ) {
+    ) {
             composable("welcome") {
                 WelcomeScreen(
                     onLoginClick = { navController.navigate("login") },
@@ -218,6 +230,31 @@ fun AppNavigation(
                     },
                     onCartClick = {
                         navController.navigate("cart")
+                    },
+                    onMenuClick = {
+                        navController.navigate("menu")
+                    },
+                    onProfileClick = {
+                        navController.navigate("profile")
+                    },
+                    onChatbotClick = {
+                        navController.navigate("chatbot")
+                    }
+                )
+            }
+            composable("menu") {
+                MenuScreen(
+                    viewModel = homeViewModel,
+                    onProductClick = { productId ->
+                        navController.navigate("detail/$productId")
+                    },
+                    onCartClick = {
+                        navController.navigate("cart")
+                    },
+                    onHomeClick = {
+                        navController.navigate("home") {
+                            popUpTo(0) { inclusive = true }
+                        }
                     },
                     onProfileClick = {
                         navController.navigate("profile")
@@ -289,7 +326,7 @@ fun AppNavigation(
             ) { backStackEntry ->
                 val voucherCode = backStackEntry.arguments?.getString("voucherCode")
                 val checkoutViewModel: CheckoutViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = CheckoutViewModelFactory(orderRepository, userRepository)
+                    factory = CheckoutViewModelFactory(orderRepository, userRepository, cartRepository)
                 )
                 CheckoutScreen(
                     viewModel = checkoutViewModel,
@@ -320,6 +357,9 @@ fun AppNavigation(
                             popUpTo(0) { inclusive = true }
                         }
                     },
+                    onMenuClick = {
+                        navController.navigate("menu")
+                    },
                     onLogoutClick = {
                         tokenManager.clearToken()
                         navController.navigate("welcome") {
@@ -328,8 +368,8 @@ fun AppNavigation(
                         }
                     },
                     onAddressClick = { navController.navigate("address") },
-                    onOrdersClick = { navController.navigate("orders") },
-                    onTrackingClick = { navController.navigate("orders") },
+                    onOrdersClick = { navController.navigate("orders/history") },
+                    onTrackingClick = { navController.navigate("orders/tracking") },
                     onVoucherClick = { navController.navigate("vouchers") }
                 )
             }
@@ -342,12 +382,22 @@ fun AppNavigation(
                     onBackClick = { navController.popBackStack() }
                 )
             }
-            composable("orders") {
+            composable(
+                route = "orders/{type}",
+                arguments = listOf(navArgument("type") { type = NavType.StringType; defaultValue = "tracking" })
+            ) { backStackEntry ->
+                val type = backStackEntry.arguments?.getString("type") ?: "tracking"
                 val orderHistoryViewModel: OrderHistoryViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = OrderHistoryViewModelFactory(orderRepository)
+                    factory = OrderHistoryViewModelFactory(orderRepository, webSocketManager)
                 )
+                // Need to set screen type in ViewModel
+                LaunchedEffect(type) {
+                    orderHistoryViewModel.setScreenType(type)
+                }
+
                 OrderHistoryScreen(
                     viewModel = orderHistoryViewModel,
+                    screenType = type,
                     onBackClick = { navController.popBackStack() }
                 )
             }
@@ -360,6 +410,13 @@ fun AppNavigation(
                     onBackClick = { navController.popBackStack() }
                 )
             }
+            composable("chatbot") {
+                ChatbotScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onProductClick = { productId ->
+                        navController.navigate("detail/$productId")
+                    }
+                )
+            }
         }
-    }
 }

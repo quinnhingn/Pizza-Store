@@ -30,6 +30,7 @@ import coil.compose.AsyncImage
 import com.pizzastore.android_app.network.Product
 import com.pizzastore.android_app.network.ProductSizeItem
 import com.pizzastore.android_app.network.ProductToppingItem
+import com.pizzastore.android_app.ui.components.shimmerEffect
 import com.pizzastore.android_app.viewmodel.ProductDetailState
 import com.pizzastore.android_app.viewmodel.ProductDetailViewModel
 
@@ -128,10 +129,39 @@ fun ProductDetailScreen(
         Box(modifier = Modifier.fillMaxSize().padding(padding).background(Color.White)) {
             when (val currentState = state) {
                 is ProductDetailState.Loading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = MaterialTheme.colorScheme.primary
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        // Image shimmer
+                        Box(modifier = Modifier.fillMaxWidth().height(300.dp).shimmerEffect())
+                        
+                        // Content shimmer
+                        Surface(
+                            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                            color = Color.White,
+                            modifier = Modifier.fillMaxWidth().offset(y = (-20).dp).weight(1f)
+                        ) {
+                            Column(modifier = Modifier.padding(20.dp)) {
+                                Box(modifier = Modifier.fillMaxWidth(0.6f).height(32.dp).clip(RoundedCornerShape(8.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Box(modifier = Modifier.fillMaxWidth(0.3f).height(24.dp).clip(RoundedCornerShape(8.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Box(modifier = Modifier.fillMaxWidth().height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(modifier = Modifier.fillMaxWidth(0.8f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Box(modifier = Modifier.fillMaxWidth(0.9f).height(16.dp).clip(RoundedCornerShape(4.dp)).shimmerEffect())
+                                
+                                Spacer(modifier = Modifier.height(32.dp))
+                                Box(modifier = Modifier.fillMaxWidth(0.4f).height(24.dp).clip(RoundedCornerShape(8.dp)).shimmerEffect())
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    Box(modifier = Modifier.width(110.dp).height(80.dp).clip(RoundedCornerShape(12.dp)).shimmerEffect())
+                                    Box(modifier = Modifier.width(110.dp).height(80.dp).clip(RoundedCornerShape(12.dp)).shimmerEffect())
+                                }
+                            }
+                        }
+                    }
                 }
                 is ProductDetailState.Error -> {
                     Column(
@@ -194,7 +224,7 @@ fun ProductDetailScreen(
                         // Product Details Card (Overlapping image slightly for a modern look)
                         Surface(
                             shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                            color = MaterialTheme.colorScheme.background,
+                            color = Color.White,
                             modifier = Modifier.fillMaxWidth().offset(y = (-20).dp)
                         ) {
                             Column(modifier = Modifier.padding(20.dp)) {

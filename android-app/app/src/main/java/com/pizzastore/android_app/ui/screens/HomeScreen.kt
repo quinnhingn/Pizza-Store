@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,6 +40,7 @@ import com.pizzastore.android_app.network.CategoryResponse
 import com.pizzastore.android_app.ui.components.CategoryItem
 import com.pizzastore.android_app.ui.components.PriceFilterBottomSheet
 import com.pizzastore.android_app.ui.components.ProductCard
+import com.pizzastore.android_app.ui.components.ProductReviewsBottomSheet
 import com.pizzastore.android_app.ui.components.SectionHeader
 import com.pizzastore.android_app.ui.components.ShimmerBanner
 import com.pizzastore.android_app.ui.components.ShimmerProductCard
@@ -52,7 +54,9 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onProductClick: (Int) -> Unit,
     onCartClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onMenuClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    onChatbotClick: () -> Unit = {}
 ) {
     val homeState by viewModel.homeState.collectAsState()
     val cartItemCount by viewModel.cartItemCount.collectAsState()
@@ -66,6 +70,7 @@ fun HomeScreen(
     var showFilterSheet by remember { mutableStateOf(false) }
     var minPriceFilter by remember { mutableStateOf<Float?>(null) }
     var maxPriceFilter by remember { mutableStateOf<Float?>(null) }
+    var reviewProduct by remember { mutableStateOf<Product?>(null) }
 
     if (showFilterSheet) {
         PriceFilterBottomSheet(
@@ -83,8 +88,24 @@ fun HomeScreen(
         )
     }
 
+    if (reviewProduct != null) {
+        ProductReviewsBottomSheet(
+            product = reviewProduct!!,
+            onDismissRequest = { reviewProduct = null }
+        )
+    }
+
     Scaffold(
         containerColor = Color.White,
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onChatbotClick,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Face, contentDescription = "Trợ lý ảo AI")
+            }
+        },
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,
@@ -107,7 +128,7 @@ fun HomeScreen(
                     icon = { Icon(Icons.Default.List, contentDescription = "Menu") },
                     label = { Text("Menu") },
                     selected = false,
-                    onClick = { /* Handle Menu click */ },
+                    onClick = onMenuClick,
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,
@@ -135,8 +156,7 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .statusBarsPadding(),
+                .padding(padding),
             contentPadding = PaddingValues(bottom = 24.dp) // extra padding at the bottom of the list
         ) {
             item { Spacer(modifier = Modifier.height(16.dp)) }
@@ -246,12 +266,52 @@ fun HomeScreen(
                                 color = Color(0xFF1E1E1E), // Fallback
                                 shadowElevation = 0.dp
                             ) {
-                                coil.compose.AsyncImage(
-                                    model = imageUrl,
-                                    contentDescription = banner.title,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = androidx.compose.ui.layout.ContentScale.Crop
-                                )
+                                Box(modifier = Modifier.fillMaxSize()) {
+                                    coil.compose.AsyncImage(
+                                        model = imageUrl,
+                                        contentDescription = banner.title,
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentScale = androidx.compose.ui.layout.ContentScale.Crop
+                                    )
+                                    
+                                    // Gradient Overlay
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .background(
+                                                androidx.compose.ui.graphics.Brush.verticalGradient(
+                                                    colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.7f)),
+                                                    startY = 100f
+                                                )
+                                            )
+                                    )
+                                    
+                                    // Text Content
+                                    Column(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(16.dp)
+                                    ) {
+                                        if (!banner.title.isNullOrEmpty()) {
+                                            Text(
+                                                text = banner.title,
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = Color.White,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                        if (!banner.description.isNullOrEmpty()) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = banner.description,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = Color.White.copy(alpha = 0.9f),
+                                                maxLines = 2,
+                                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         }
                         
@@ -498,7 +558,8 @@ fun HomeScreen(
                                         items(categoryProducts.take(4)) { product ->
                                             ProductCard(
                                                 product = product,
-                                                onClick = { onProductClick(product.id) }
+                                                onClick = { onProductClick(product.id) },
+                                                onReviewClick = { reviewProduct = product }
                                             )
                                         }
                                     }

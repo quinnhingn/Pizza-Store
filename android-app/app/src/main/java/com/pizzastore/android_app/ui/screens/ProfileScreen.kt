@@ -44,6 +44,7 @@ fun ProfileScreen(
     onBackClick: () -> Unit,
     onHomeClick: () -> Unit,
     onLogoutClick: () -> Unit,
+    onMenuClick: () -> Unit,
     onAddressClick: () -> Unit,
     onOrdersClick: () -> Unit,
     onTrackingClick: () -> Unit,
@@ -241,7 +242,7 @@ fun ProfileScreen(
                     icon = { Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Menu") },
                     label = { Text("Menu") },
                     selected = false,
-                    onClick = { /* Handle Menu click */ },
+                    onClick = onMenuClick,
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = MaterialTheme.colorScheme.primary,
                         selectedTextColor = MaterialTheme.colorScheme.primary,

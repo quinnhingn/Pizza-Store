@@ -1,10 +1,13 @@
 package com.pizzastore.android_app.ui.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,17 +27,30 @@ import com.pizzastore.android_app.network.Product
 fun ProductCard(
     product: Product,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    onReviewClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+    isFullWidth: Boolean = false
 ) {
+    // Determine card dimensions
+    val cardModifier = if (isFullWidth) {
+        modifier
+            .fillMaxWidth()
+            .height(145.dp)
+            .padding(bottom = 12.dp)
+    } else {
+        modifier
+            .width(330.dp)
+            .height(145.dp)
+            .padding(end = 12.dp, bottom = 4.dp)
+    }
+
     Card(
-        modifier = modifier
-            .width(300.dp)
-            .height(130.dp)
-            .padding(end = 4.dp, bottom = 4.dp), // Slight padding for shadow
+        modifier = cardModifier,
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        onClick = onClick
+        onClick = { if (product.is_available) onClick() },
+        enabled = product.is_available
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
@@ -44,11 +60,11 @@ fun ProductCard(
             else if (product.image_url.startsWith("http")) product.image_url
             else "http://10.0.2.2:8000/${product.image_url.removePrefix("/")}"
 
-            // Image filling the left side
+            // Left side: Image Area
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .aspectRatio(1f) // Square image
+                    .width(135.dp)
             ) {
                 AsyncImage(
                     model = imageUrl,
@@ -57,31 +73,42 @@ fun ProductCard(
                     contentScale = ContentScale.Crop
                 )
                 
+                // Out of stock overlay
                 if (!product.is_available) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.4f))
+                    )
                     Surface(
-                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.9f),
-                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
+                        color = Color(0xFFE50000), // Solid Red
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
                     ) {
                         Text(
                             text = "Hết món",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,
-                            modifier = Modifier.padding(vertical = 2.dp)
+                            modifier = Modifier.padding(vertical = 4.dp)
                         )
                     }
                 }
             }
 
-            // Info Column
+            // Right side: Content Area
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
-                    .padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 12.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .padding(12.dp)
             ) {
-                Column {
+                // Top area with Title, Description, Rating (takes remaining space)
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         text = product.name,
                         style = MaterialTheme.typography.titleSmall,
@@ -103,27 +130,77 @@ fun ProductCard(
                             lineHeight = 14.sp
                         )
                     }
+
+                    Spacer(modifier = Modifier.weight(1f)) // Push rating to bottom of this column if needed
+
+                    if (product.total_reviews > 0) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .clickable { onReviewClick?.invoke() }
+                                .padding(vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Star,
+                                contentDescription = "Rating",
+                                tint = Color(0xFFFFC107),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${if(product.average_rating > 0) String.format("%.1f", product.average_rating) else "0"} (${product.total_reviews} đánh giá)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.Gray,
+                                fontSize = 11.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "Chưa có đánh giá",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.LightGray,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(vertical = 2.dp),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
+                // Bottom area: Price and Add Button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    Column {
+                    val smallestPrice = if (product.sizes.isNotEmpty()) {
+                        product.sizes.minOf { (product.price * it.price_multiplier) + it.extra_price }
+                    } else {
+                        product.price
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = "Chỉ từ",
                             style = MaterialTheme.typography.labelSmall,
                             color = Color.Gray,
-                            fontSize = 10.sp
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = "${String.format("%,.0f", product.price)} đ",
+                            text = "${String.format("%,.0f", smallestPrice)} đ",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.primary, // Red price
-                            fontWeight = FontWeight.ExtraBold
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Add button
                     Surface(
