@@ -74,7 +74,7 @@ async def create_order(
                 )
 
             VN_TZ = timezone(timedelta(hours=7))
-            now = datetime.now(VN_TZ)
+            now = datetime.now(VN_TZ).replace(tzinfo=None)
             if now < voucher.start_date or now > voucher.end_date:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

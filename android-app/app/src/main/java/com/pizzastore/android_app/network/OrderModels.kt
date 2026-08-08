@@ -21,5 +21,18 @@ data class OrderResponse(
     val shipping_address: String,
     val shipping_phone: String,
     val note: String?,
-    val created_at: String
+    val created_at: String,
+    val updated_at: String? = null,
+    val customer_confirmed: Boolean = false,
+    val has_reviews: Boolean = false,
+    val items: List<OrderItemResponse>? = null
+)
+
+data class OrderItemResponse(
+    val id: Int,
+    val product: com.pizzastore.android_app.network.Product?,
+    val quantity: Int,
+    val unit_price: Double,
+    val size_name: String?,
+    val toppings: List<com.google.gson.JsonElement>? // Depending on API response, could be list of objects or strings
 )
