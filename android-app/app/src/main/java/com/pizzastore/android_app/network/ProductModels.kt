@@ -23,7 +23,9 @@ data class Product(
     val is_available: Boolean,
     val ingredients: List<String> = emptyList(),
     val sizes: List<ProductSizeItem> = emptyList(),
-    val toppings: List<ProductToppingItem> = emptyList()
+    val toppings: List<ProductToppingItem> = emptyList(),
+    val average_rating: Double = 0.0,
+    val total_reviews: Int = 0
 )
 
 data class PaginatedProductResponse(
