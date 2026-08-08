@@ -1,6 +1,7 @@
 package com.pizzastore.android_app.ui.screens
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -10,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
@@ -260,7 +262,8 @@ fun CartScreen(
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         ModalBottomSheet(
             onDismissRequest = { showVoucherSheet = false },
-            sheetState = sheetState
+            sheetState = sheetState,
+            containerColor = Color.White
         ) {
             Column(
                 modifier = Modifier
@@ -287,51 +290,91 @@ fun CartScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 } else {
-                    androidx.compose.foundation.lazy.LazyColumn {
+                    androidx.compose.foundation.lazy.LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         items(vouchers.size) { index ->
-                            val voucher = vouchers[index]
-                            val isSelected = voucher.code == voucherCode
+                            val userVoucher = vouchers[index]
+                            val voucher = userVoucher.voucher_details
+                            val isSelected = userVoucher.voucher_code == voucherCode
                             
-                            val backgroundColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f) else MaterialTheme.colorScheme.surface
-                            val borderColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                            val backgroundColor = if (isSelected) Color(0xFFFFF0F0) else Color.White
+                            val borderColor = if (isSelected) Color(0xFFE53935) else Color(0xFFE0E0E0)
                             
-                            androidx.compose.material3.Card(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 8.dp)
+                                    .height(IntrinsicSize.Min)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(backgroundColor)
+                                    .border(1.dp, borderColor, RoundedCornerShape(12.dp))
                                     .clickable {
                                         if (!isSelected) {
-                                            viewModel.onVoucherCodeChange(voucher.code)
-                                            viewModel.applyVoucher(voucher.code)
+                                            viewModel.onVoucherCodeChange(userVoucher.voucher_code)
+                                            viewModel.applyVoucher(userVoucher.voucher_code)
                                             showVoucherSheet = false
                                         }
-                                    },
-                                colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = backgroundColor),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+                                    }
                             ) {
+                                // Left Edge Ticket Style
+                                Box(
+                                    modifier = Modifier
+                                        .width(10.dp)
+                                        .fillMaxHeight()
+                                        .background(if (isSelected) Color(0xFFE53935) else Color(0xFFEF5350))
+                                ) {
+                                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                                        val radius = 5.dp.toPx()
+                                        drawCircle(Color.White, radius, androidx.compose.ui.geometry.Offset(0f, 0f))
+                                        drawCircle(Color.White, radius, androidx.compose.ui.geometry.Offset(0f, size.height))
+                                    }
+                                }
+
+                                // Separator
+                                androidx.compose.foundation.Canvas(modifier = Modifier.width(1.dp).fillMaxHeight()) {
+                                    val path = androidx.compose.ui.graphics.Path().apply {
+                                        moveTo(0f, 0f)
+                                        lineTo(0f, size.height)
+                                    }
+                                    drawPath(
+                                        path = path,
+                                        color = if (isSelected) Color(0xFFE53935) else Color(0xFFEF5350),
+                                        style = androidx.compose.ui.graphics.drawscope.Stroke(
+                                            width = 2f,
+                                            pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(10f, 10f), 0f)
+                                        )
+                                    )
+                                }
+                                
                                 Row(
-                                    modifier = Modifier.padding(16.dp).fillMaxWidth(),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Column(modifier = Modifier.weight(1f)) {
-                                        // Badge
-                                        Surface(
-                                            color = MaterialTheme.colorScheme.errorContainer,
-                                            shape = RoundedCornerShape(4.dp),
-                                            modifier = Modifier.padding(bottom = 8.dp)
+                                        Box(
+                                            modifier = Modifier
+                                                .background(
+                                                    color = if (isSelected) Color(0xFFFFCDD2) else Color(0xFFFFEBEE),
+                                                    shape = RoundedCornerShape(4.dp)
+                                                )
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
                                         ) {
                                             Text(
-                                                text = voucher.code,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                                style = MaterialTheme.typography.labelMedium,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                text = userVoucher.voucher_code.uppercase(),
+                                                fontWeight = FontWeight.Black,
+                                                color = Color(0xFFC62828),
+                                                fontSize = 12.sp,
+                                                letterSpacing = 1.sp
                                             )
                                         }
                                         
-                                        val desc = if (voucher.discount_percent != null) {
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        
+                                        val desc = if (voucher?.discount_percent != null) {
                                             "Giảm ${voucher.discount_percent}%" + if (voucher.max_discount != null) " (Tối đa ${String.format("%,.0f", voucher.max_discount)}đ)" else ""
-                                        } else if (voucher.discount_amount != null) {
+                                        } else if (voucher?.discount_amount != null) {
                                             "Giảm ${String.format("%,.0f", voucher.discount_amount)}đ"
                                         } else {
                                             "Mã khuyến mãi"
@@ -341,43 +384,39 @@ fun CartScreen(
                                             text = desc,
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            color = Color.Black
                                         )
                                         
                                         Spacer(modifier = Modifier.height(4.dp))
                                         
                                         Text(
-                                            text = "Đơn tối thiểu: ${String.format("%,.0f", voucher.min_order_value ?: 0.0)}đ",
+                                            text = "Đơn tối thiểu: ${String.format("%,.0f", voucher?.min_order_value ?: 0.0)}đ",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            color = Color.Gray
                                         )
                                     }
                                     
-                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Spacer(modifier = Modifier.width(8.dp))
                                     
                                     if (isSelected) {
                                         Surface(
-                                            color = MaterialTheme.colorScheme.primary,
+                                            color = Color(0xFFE53935),
                                             shape = CircleShape
                                         ) {
-                                            Text(
-                                                text = "Đang dùng",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onPrimary,
-                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            Icon(
+                                                imageVector = androidx.compose.material.icons.Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = Color.White,
+                                                modifier = Modifier.padding(4.dp).size(20.dp)
                                             )
                                         }
                                     } else {
-                                        androidx.compose.material3.TextButton(
-                                            onClick = {
-                                                viewModel.onVoucherCodeChange(voucher.code)
-                                                viewModel.applyVoucher(voucher.code)
-                                                showVoucherSheet = false
-                                            },
-                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
-                                            modifier = Modifier.height(32.dp)
+                                        Surface(
+                                            shape = CircleShape,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.LightGray),
+                                            color = Color.Transparent
                                         ) {
-                                            Text("Chọn mã này", style = MaterialTheme.typography.labelMedium)
+                                            Box(modifier = Modifier.size(28.dp))
                                         }
                                     }
                                 }

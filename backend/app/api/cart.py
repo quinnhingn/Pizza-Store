@@ -143,6 +143,37 @@ async def update_cart_item(
     # Tính lại tổng tiền
     item.total_price = Decimal(str(item.unit_price or 0)) * item.quantity
 
+    # Kiểm tra xem sau khi update có bị trùng với một item khác đã có trong giỏ không
+    target_note = (item.note or "").strip().lower()
+    target_size = (item.size_name or "").strip().lower()
+
+    exist_res = await db.execute(
+        select(CartItem).where(
+            CartItem.user_id == current_user.id,
+            CartItem.product_id == item.product_id,
+            CartItem.id != item.id
+        )
+    )
+    other_items = exist_res.scalars().all()
+
+    matched_other = None
+    for other in other_items:
+        other_note = (other.note or "").strip().lower()
+        other_size = (other.size_name or "").strip().lower()
+        if other_size == target_size and other_note == target_note:
+            if toppings_match(other.toppings or [], item.toppings or []):
+                matched_other = other
+                break
+
+    if matched_other:
+        # Gộp số lượng vào matched_other và xóa item hiện tại
+        matched_other.quantity += item.quantity
+        matched_other.total_price = Decimal(str(matched_other.unit_price or 0)) * matched_other.quantity
+        await db.delete(item)
+        await db.commit()
+        await db.refresh(matched_other)
+        return matched_other
+
     await db.commit()
     await db.refresh(item)
     return item

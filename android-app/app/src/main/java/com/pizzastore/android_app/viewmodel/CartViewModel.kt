@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pizzastore.android_app.network.CartItemResponse
 import com.pizzastore.android_app.network.CartItemUpdateRequest
-import com.pizzastore.android_app.network.VoucherResponse
+import com.pizzastore.android_app.network.UserVoucherResponse
 import com.pizzastore.android_app.repository.CartRepository
 import com.pizzastore.android_app.repository.OrderRepository
 import com.pizzastore.android_app.repository.VoucherRepository
@@ -41,8 +41,8 @@ class CartViewModel(
     private val _voucherMessage = MutableStateFlow<String?>(null)
     val voucherMessage: StateFlow<String?> = _voucherMessage
 
-    private val _vouchers = MutableStateFlow<List<VoucherResponse>>(emptyList())
-    val vouchers: StateFlow<List<VoucherResponse>> = _vouchers
+    private val _vouchers = MutableStateFlow<List<UserVoucherResponse>>(emptyList())
+    val vouchers: StateFlow<List<UserVoucherResponse>> = _vouchers
 
     init {
         loadCart()
@@ -76,9 +76,9 @@ class CartViewModel(
 
     private fun loadVouchers() {
         viewModelScope.launch {
-            val result = voucherRepository.getActiveVouchers()
+            val result = voucherRepository.getMySavedVouchers("active")
             if (result.isSuccess) {
-                _vouchers.value = result.getOrNull() ?: emptyList()
+                _vouchers.value = result.getOrNull()?.filter { !it.is_used } ?: emptyList()
             }
         }
     }

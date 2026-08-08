@@ -167,6 +167,36 @@ export const CartProvider = ({ children }) => {
         if (payload.toppings !== undefined) guestItems[idx].toppings = payload.toppings;
         if (payload.note !== undefined) guestItems[idx].note = payload.note;
         guestItems[idx].total_price = Number(guestItems[idx].unit_price) * guestItems[idx].quantity;
+        
+        // Kiểm tra gộp nếu trùng với một item khác
+        const item = guestItems[idx];
+        const targetSize = (item.size_name || "").strip?.() || item.size_name || "";
+        const targetNote = (item.note || "").trim().toLowerCase();
+        
+        const normalizeTop = (tops) => (tops || []).slice().sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+        const topsMatch = (t1, t2) => {
+          const n1 = normalizeTop(t1);
+          const n2 = normalizeTop(t2);
+          if (n1.length !== n2.length) return false;
+          return n1.every((x, i) => (x.name || "").trim().toLowerCase() === (n2[i].name || "").trim().toLowerCase());
+        };
+        
+        const matchIdx = guestItems.findIndex((it, index) => {
+          if (index === idx) return false;
+          const itSize = (it.size_name || "").strip?.() || it.size_name || "";
+          const itNote = (it.note || "").trim().toLowerCase();
+          return it.product_id === item.product_id &&
+                 itSize === targetSize &&
+                 itNote === targetNote &&
+                 topsMatch(it.toppings, item.toppings);
+        });
+        
+        if (matchIdx > -1) {
+          guestItems[matchIdx].quantity += item.quantity;
+          guestItems[matchIdx].total_price = Number(guestItems[matchIdx].unit_price) * guestItems[matchIdx].quantity;
+          guestItems.splice(idx, 1);
+        }
+
         saveGuestCart(guestItems);
       }
       return { success: true };

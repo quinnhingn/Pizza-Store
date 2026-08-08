@@ -72,7 +72,7 @@ async def validate_voucher(
         )
 
     VN_TZ = timezone(timedelta(hours=7))
-    now = datetime.now(VN_TZ)
+    now = datetime.now(VN_TZ).replace(tzinfo=None)
     if now < voucher.start_date or now > voucher.end_date:
         return VoucherValidateResponse(
             valid=False,
@@ -390,7 +390,7 @@ async def get_my_saved_vouchers(
     history_list = []
     from datetime import datetime, timezone, timedelta
     VN_TZ = timezone(timedelta(hours=7))
-    now_dt = datetime.now(VN_TZ)
+    now_dt = datetime.now(VN_TZ).replace(tzinfo=None)
 
     for item in saved_list:
         v_stmt = select(Voucher).where(Voucher.code == item.voucher_code)

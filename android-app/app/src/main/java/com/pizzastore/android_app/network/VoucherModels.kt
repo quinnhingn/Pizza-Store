@@ -24,3 +24,12 @@ data class VoucherValidateResponse(
     val message: String,
     val voucher_details: VoucherResponse?
 )
+
+data class UserVoucherResponse(
+    val id: Int,
+    val user_id: Int,
+    val voucher_code: String,
+    val is_used: Boolean,
+    val saved_at: String?,
+    val voucher_details: VoucherResponse?
+)

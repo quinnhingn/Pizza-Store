@@ -3,7 +3,7 @@ package com.pizzastore.android_app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.pizzastore.android_app.network.VoucherResponse
+import com.pizzastore.android_app.network.UserVoucherResponse
 import com.pizzastore.android_app.repository.VoucherRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,7 +11,7 @@ import kotlinx.coroutines.launch
 
 sealed class VoucherWalletState {
     object Loading : VoucherWalletState()
-    data class Success(val vouchers: List<VoucherResponse>) : VoucherWalletState()
+    data class Success(val vouchers: List<UserVoucherResponse>) : VoucherWalletState()
     data class Error(val message: String) : VoucherWalletState()
 }
 
@@ -20,13 +20,13 @@ class VoucherWalletViewModel(private val repository: VoucherRepository) : ViewMo
     val state: StateFlow<VoucherWalletState> = _state
 
     init {
-        loadVouchers()
+        loadVouchers("active")
     }
 
-    private fun loadVouchers() {
+    fun loadVouchers(tab: String) {
         viewModelScope.launch {
             _state.value = VoucherWalletState.Loading
-            val result = repository.getActiveVouchers()
+            val result = repository.getMySavedVouchers(tab)
             if (result.isSuccess) {
                 _state.value = VoucherWalletState.Success(result.getOrNull() ?: emptyList())
             } else {
