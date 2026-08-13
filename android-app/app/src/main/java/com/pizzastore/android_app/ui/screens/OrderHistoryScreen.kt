@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import com.pizzastore.android_app.network.OrderResponse
+import com.pizzastore.android_app.ui.components.OrderDetailBottomSheet
 import com.pizzastore.android_app.viewmodel.OrderHistoryState
 import com.pizzastore.android_app.viewmodel.OrderHistoryViewModel
 
@@ -49,6 +50,7 @@ fun OrderHistoryScreen(
 
     val currentTabs = if (screenType == "tracking") TRACKING_TABS else HISTORY_TABS
     val title = if (screenType == "tracking") "Theo dõi đơn hàng" else "Lịch sử mua hàng"
+    var orderToView by remember { mutableStateOf<OrderResponse?>(null) }
 
     // Handle auto-hide notification
     LaunchedEffect(notification) {
@@ -138,7 +140,8 @@ fun OrderHistoryScreen(
                                 OrderCardDetailed(
                                     order = order,
                                     onCancel = { viewModel.cancelOrder(order.id) },
-                                    onConfirmReceived = { viewModel.confirmOrderReceived(order.id) }
+                                    onConfirmReceived = { viewModel.confirmOrderReceived(order.id) },
+                                    onViewDetails = { orderToView = order }
                                 )
                             }
                         }
@@ -167,6 +170,13 @@ fun OrderHistoryScreen(
                 }
             }
         }
+    }
+
+    if (orderToView != null) {
+        OrderDetailBottomSheet(
+            order = orderToView!!,
+            onDismiss = { orderToView = null }
+        )
     }
 }
 
@@ -199,7 +209,8 @@ fun isOrderReviewable(order: OrderResponse): Boolean {
 fun OrderCardDetailed(
     order: OrderResponse,
     onCancel: () -> Unit,
-    onConfirmReceived: () -> Unit
+    onConfirmReceived: () -> Unit,
+    onViewDetails: () -> Unit
 ) {
     val dateStr = order.created_at.take(10).split("-").reversed().joinToString("/")
     
@@ -344,7 +355,7 @@ fun OrderCardDetailed(
                     }
 
                     Button(
-                        onClick = { /* TODO: View Details */ },
+                        onClick = onViewDetails,
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1F2937)),
                         modifier = Modifier.height(36.dp).then(spacingModifier)

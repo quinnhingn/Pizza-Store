@@ -27,4 +27,19 @@ class VoucherRepository(private val apiService: VoucherApiService) {
             Result.failure(Exception(e.message ?: "Unknown error occurred"))
         }
     }
+
+    suspend fun saveVoucher(code: String, notificationId: Int?): Result<String> {
+        return try {
+            val request = com.pizzastore.android_app.network.SaveVoucherRequest(
+                code = code,
+                notification_id = notificationId
+            )
+            val response = apiService.saveVoucher(request)
+            Result.success(response["message"] ?: "Đã lưu mã thành công!")
+        } catch (e: HttpException) {
+            Result.failure(Exception("HTTP error: ${e.code()}"))
+        } catch (e: Exception) {
+            Result.failure(Exception(e.message ?: "Unknown error occurred"))
+        }
+    }
 }

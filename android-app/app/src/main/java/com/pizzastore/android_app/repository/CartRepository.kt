@@ -12,7 +12,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
-class CartRepository(private val apiService: CartApiService) {
+import com.pizzastore.android_app.network.Product
+import com.pizzastore.android_app.utils.GuestCartManager
+import com.pizzastore.android_app.utils.TokenManager
+
+class CartRepository(
+    private val apiService: CartApiService,
+    private val tokenManager: TokenManager,
+    private val guestCartManager: GuestCartManager
+) {
     
     private val _cartItemCount = MutableStateFlow(0)
     val cartItemCount: StateFlow<Int> = _cartItemCount.asStateFlow()
@@ -22,9 +30,15 @@ class CartRepository(private val apiService: CartApiService) {
     
     suspend fun getCart(): Result<CartSummaryResponse> {
         return try {
-            val response = apiService.getCart()
-            _cartItemCount.value = response.total_items
-            Result.success(response)
+            if (tokenManager.getToken() == null) {
+                val summary = guestCartManager.getCartSummary()
+                _cartItemCount.value = summary.total_items
+                Result.success(summary)
+            } else {
+                val response = apiService.getCart()
+                _cartItemCount.value = response.total_items
+                Result.success(response)
+            }
         } catch (e: HttpException) {
             Result.failure(Exception("HTTP error: ${e.code()}"))
         } catch (e: Exception) {
@@ -32,9 +46,13 @@ class CartRepository(private val apiService: CartApiService) {
         }
     }
     
-    suspend fun addItemToCart(request: CartItemCreateRequest): Result<CartItemResponse> {
+    suspend fun addItemToCart(request: CartItemCreateRequest, product: Product? = null): Result<CartItemResponse> {
         return try {
-            val response = apiService.addItemToCart(request)
+            val response = if (tokenManager.getToken() == null) {
+                guestCartManager.addItem(request, product)
+            } else {
+                apiService.addItemToCart(request)
+            }
             _cartUpdatedEvent.tryEmit(Unit)
             Result.success(response)
         } catch (e: HttpException) {
@@ -46,7 +64,11 @@ class CartRepository(private val apiService: CartApiService) {
     
     suspend fun updateCartItem(id: Int, request: CartItemUpdateRequest): Result<CartItemResponse> {
         return try {
-            val response = apiService.updateCartItem(id, request)
+            val response = if (tokenManager.getToken() == null) {
+                guestCartManager.updateItem(id, request)
+            } else {
+                apiService.updateCartItem(id, request)
+            }
             _cartUpdatedEvent.tryEmit(Unit)
             Result.success(response)
         } catch (e: HttpException) {
@@ -58,7 +80,11 @@ class CartRepository(private val apiService: CartApiService) {
     
     suspend fun deleteCartItem(id: Int): Result<Unit> {
         return try {
-            apiService.deleteCartItem(id)
+            if (tokenManager.getToken() == null) {
+                guestCartManager.deleteItem(id)
+            } else {
+                apiService.deleteCartItem(id)
+            }
             _cartUpdatedEvent.tryEmit(Unit)
             Result.success(Unit)
         } catch (e: HttpException) {
@@ -70,10 +96,40 @@ class CartRepository(private val apiService: CartApiService) {
     
     suspend fun refreshCartCount() {
         try {
-            val response = apiService.getCart()
-            _cartItemCount.value = response.total_items
+            if (tokenManager.getToken() == null) {
+                val summary = guestCartManager.getCartSummary()
+                _cartItemCount.value = summary.total_items
+            } else {
+                val response = apiService.getCart()
+                _cartItemCount.value = response.total_items
+            }
         } catch (e: Exception) {
             // Ignore error when just refreshing count
+        }
+    }
+
+    suspend fun syncGuestCartToServer() {
+        if (tokenManager.getToken() != null) {
+            val guestItems = guestCartManager.getGuestCartItems()
+            if (guestItems.isNotEmpty()) {
+                try {
+                    for (item in guestItems) {
+                        val request = CartItemCreateRequest(
+                            product_id = item.product_id,
+                            size_name = item.size_name,
+                            toppings = item.toppings,
+                            quantity = item.quantity,
+                            note = item.note,
+                            unit_price = item.unit_price
+                        )
+                        apiService.addItemToCart(request)
+                    }
+                    guestCartManager.clearCart()
+                    refreshCartCount()
+                } catch (e: Exception) {
+                    // Sync failed, log or ignore
+                }
+            }
         }
     }
 }

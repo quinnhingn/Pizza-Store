@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pizzastore.android_app.network.UserAddressResponse
@@ -57,7 +58,7 @@ fun CheckoutScreen(
     }
 
     if (status is CheckoutState.Success) {
-        val orderCodeStr = (status as CheckoutState.Success).orderCode
+        val successState = status as CheckoutState.Success
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp).background(Color.White),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -86,7 +87,34 @@ fun CheckoutScreen(
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
                         Text("Mã đơn hàng:", color = Color.Gray)
-                        Text(orderCodeStr, fontWeight = FontWeight.Bold)
+                        Text(successState.orderCode, fontWeight = FontWeight.Bold)
+                    }
+                    Divider(color = Color(0xFFF3F4F6))
+                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Người nhận:", color = Color.Gray)
+                        Text(successState.recipientName, fontWeight = FontWeight.Medium)
+                    }
+                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Số điện thoại:", color = Color.Gray)
+                        Text(successState.phone, fontWeight = FontWeight.Medium)
+                    }
+                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Địa chỉ giao:", color = Color.Gray)
+                        Text(
+                            text = successState.address, 
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier.weight(1f).padding(start = 16.dp),
+                            textAlign = TextAlign.End
+                        )
+                    }
+                    Divider(color = Color(0xFFF3F4F6))
+                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                        Text("Tổng thanh toán:", color = Color.Gray, fontWeight = FontWeight.Bold)
+                        Text(
+                            text = "${String.format("%,.0f", successState.totalAmount)}đ", 
+                            fontWeight = FontWeight.Black,
+                            color = Color(0xFFE53935)
+                        )
                     }
                 }
             }

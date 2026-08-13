@@ -15,7 +15,13 @@ import kotlinx.coroutines.launch
 sealed class CheckoutState {
     object Idle : CheckoutState()
     object Loading : CheckoutState()
-    data class Success(val orderCode: String) : CheckoutState()
+    data class Success(
+        val orderCode: String,
+        val recipientName: String,
+        val phone: String,
+        val address: String,
+        val totalAmount: Double
+    ) : CheckoutState()
     data class Error(val message: String) : CheckoutState()
 }
 
@@ -151,7 +157,13 @@ class CheckoutViewModel(
                 try { cartRepository.getCart() } catch (e: Exception) {}
                 
                 val data = result.getOrNull()
-                _state.value = CheckoutState.Success(data?.order_code ?: "UNKNOWN")
+                _state.value = CheckoutState.Success(
+                    orderCode = data?.order_code ?: "UNKNOWN",
+                    recipientName = data?.shipping_full_name ?: finalName,
+                    phone = data?.shipping_phone ?: finalPhone,
+                    address = data?.shipping_address ?: finalAddress,
+                    totalAmount = data?.total_amount ?: 0.0
+                )
             } else {
                 _state.value = CheckoutState.Error(result.exceptionOrNull()?.message ?: "Lỗi khi đặt hàng")
             }
