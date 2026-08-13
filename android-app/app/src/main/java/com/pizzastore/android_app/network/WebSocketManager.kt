@@ -38,7 +38,7 @@ class WebSocketManager(
                 try {
                     val json = JSONObject(text)
                     val type = json.optString("type")
-                    if (type == "order_update" || type == "new_order") {
+                    if (type == "order_update" || type == "new_order" || type == "notification" || type == "voucher_gift") {
                         _events.tryEmit(type)
                     }
                 } catch (e: Exception) {
