@@ -50,7 +50,7 @@ async def chat_with_bot(
             for msg in req.history[:-1]:  # Exclude last (current) message
                 gemini_history.append({"role": msg.role, "text": msg.text})
         
-        intent_data = get_chat_intent(req.message, gemini_history)
+        intent_data = await get_chat_intent(req.message, gemini_history)
     except Exception as e:
         logger.error(f"Gemini API Error: {e}")
         # Fallback: return a friendly message without crashing
@@ -69,6 +69,8 @@ async def chat_with_bot(
     suggested_queries = intent_data.get("suggested_queries") or []
 
     # 2. Query Database with eager loading for ingredients
+    # Note: size_associations and topping_associations already use lazy="selectin" in the model,
+    # so they are automatically loaded without needing explicit selectinload here.
     stmt = select(Product).where(Product.is_available == True).options(
         selectinload(Product.ingredient_associations).selectinload(ProductIngredient.ingredient)
     )
@@ -108,10 +110,13 @@ async def chat_with_bot(
             "id": p.id,
             "name": p.name,
             "description": p.description,
-            "base_price": float(p.price),
+            "price": float(p.price),
             "image_url": p.image_url,
             "category_id": p.category_id,
-            "ingredients": p.ingredients
+            "is_available": p.is_available,
+            "ingredients": p.ingredients,
+            "sizes": [{"id": s.id, "size_name": s.size_name, "price_multiplier": float(s.price_multiplier), "extra_price": float(s.extra_price)} for s in p.sizes],
+            "toppings": [{"id": t.id, "topping_name": t.topping_name, "extra_price": float(t.extra_price)} for t in p.toppings]
         })
         
     # 5. Save Chat History (non-blocking: don't crash if save fails)

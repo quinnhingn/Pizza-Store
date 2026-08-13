@@ -18,7 +18,7 @@ ssl_context = ssl.create_default_context()
 # Initialize Async Engine for PostgreSQL (Neon)
 engine = create_async_engine(
     DATABASE_URL,
-    echo=True,  # Set to False in Production
+    echo=False,  # Disabled to avoid spamming terminal
     future=True,
     connect_args={"ssl": ssl_context}
 )

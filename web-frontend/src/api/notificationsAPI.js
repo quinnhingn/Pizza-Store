@@ -22,6 +22,13 @@ const notificationsAPI = {
   markAllAsRead: async () => {
     return await axiosInstance.patch('/notifications/read-all');
   },
+  /**
+   * Xóa tất cả thông báo đã đọc
+   * @param {string} type 'general' hoặc 'voucher'
+   */
+  clearAll: async (type = 'general') => {
+    return await axiosInstance.delete(`/notifications/clear-all?type=${type}`);
+  },
 };
 
 export default notificationsAPI;

@@ -70,6 +70,20 @@ export const NotificationProvider = ({ children }) => {
   const generalUnreadCount = generalNotifications.filter((item) => !item.is_read).length;
   const voucherUnreadCount = voucherNotifications.filter((item) => !item.is_read).length;
 
+  const clearAll = async (type = 'general') => {
+    try {
+      setNotifications((prev) => 
+        type === 'voucher' ? prev.filter(item => item.type !== 'voucher_gift' || !item.is_read) 
+                           : prev.filter(item => item.type === 'voucher_gift' || !item.is_read)
+      );
+      await notificationsAPI.clearAll(type);
+      fetchNotifications(true);
+    } catch (err) {
+      console.error('Failed to clear all notifications:', err);
+      fetchNotifications(true);
+    }
+  };
+
   const value = {
     notifications,
     generalNotifications,
@@ -81,6 +95,7 @@ export const NotificationProvider = ({ children }) => {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
+    clearAll,
   };
 
   return (

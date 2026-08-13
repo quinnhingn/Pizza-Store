@@ -1,14 +1,17 @@
 package com.pizzastore.android_app.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.pizzastore.android_app.network.ChatMessageApi
 import com.pizzastore.android_app.network.Product
-import kotlinx.coroutines.delay
+import com.pizzastore.android_app.repository.ChatRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 data class ChatMessage(
     val id: String,
@@ -18,18 +21,20 @@ data class ChatMessage(
     val suggestions: List<String> = emptyList()
 )
 
-class ChatbotViewModel : ViewModel() {
+class ChatbotViewModel(private val repository: ChatRepository) : ViewModel() {
     private val _messages = MutableStateFlow<List<ChatMessage>>(emptyList())
     val messages: StateFlow<List<ChatMessage>> = _messages.asStateFlow()
 
     private val _isTyping = MutableStateFlow(false)
     val isTyping: StateFlow<Boolean> = _isTyping.asStateFlow()
 
+    private val sessionId = UUID.randomUUID().toString()
+
     init {
         // Initial bot message
         _messages.value = listOf(
             ChatMessage(
-                id = "1",
+                id = UUID.randomUUID().toString(),
                 sender = "bot",
                 text = "Chào bạn! Mình là trợ lý ảo của Pizza Store. Bạn cần tìm bánh hay tư vấn gì hôm nay?",
                 suggestions = listOf("Pizza Hải Sản", "Có pizza chay không?", "Dưới 150k")
@@ -40,52 +45,67 @@ class ChatbotViewModel : ViewModel() {
     fun sendMessage(text: String) {
         if (text.isBlank()) return
 
-        // Add user message
+        // Add user message to UI
         val userMsg = ChatMessage(
-            id = System.currentTimeMillis().toString(),
+            id = UUID.randomUUID().toString(),
             sender = "user",
             text = text
         )
         _messages.update { it + userMsg }
         
-        // Simulate typing and bot response
         viewModelScope.launch {
             _isTyping.value = true
-            delay(1500) // Mock network delay
+            
+            // Convert current messages to ChatMessageApi format for history (excluding the new message itself, which we send as 'message')
+            // Wait, the API takes 'message' and 'history'.
+            // Actually, we should send all previous messages as history.
+            val history = _messages.value
+                .filter { it.id != userMsg.id } // exclude current
+                .map { 
+                    ChatMessageApi(
+                        role = if (it.sender == "user") "user" else "model",
+                        text = it.text
+                    )
+                }
+
+            val result = repository.sendMessage(
+                message = text,
+                sessionId = sessionId,
+                history = history
+            )
+            
             _isTyping.value = false
             
-            // Mock responses based on keywords
-            val botResponse = if (text.contains("hải sản", ignoreCase = true)) {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
+            if (result.isSuccess) {
+                val response = result.getOrThrow()
+                val botMsg = ChatMessage(
+                    id = UUID.randomUUID().toString(),
                     sender = "bot",
-                    text = "Gửi bạn một vài gợi ý tuyệt vời cho Pizza Hải Sản nhé! Bạn có thể chọn loại đế mỏng hoặc dày.",
-                    products = listOf(
-                        Product(id = 1, name = "Pizza Hải Sản Nhiệt Đới", description = "Tôm, mực, dứa", price = 169000.0, image_url = "https://via.placeholder.com/150", category_id = 1, is_available = true, average_rating = 4.8, total_reviews = 120),
-                        Product(id = 2, name = "Pizza Hải Sản Sốt Pesto", description = "Tôm, mực, sốt pesto xanh", price = 179000.0, image_url = "https://via.placeholder.com/150", category_id = 1, is_available = true, average_rating = 4.5, total_reviews = 45)
-                    ),
-                    suggestions = listOf("Cỡ lớn", "Thêm phô mai")
+                    text = response.reply_message,
+                    products = response.products,
+                    suggestions = response.suggested_queries
                 )
-            } else if (text.contains("chay", ignoreCase = true)) {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
-                    sender = "bot",
-                    text = "Chúng tôi có các món chay ngon miệng phù hợp cho bạn đây:",
-                    products = listOf(
-                        Product(id = 3, name = "Pizza Rau Củ", description = "Hành tây, ớt chuông, nấm", price = 129000.0, image_url = "https://via.placeholder.com/150", category_id = 1, is_available = true, average_rating = 4.2, total_reviews = 30)
-                    ),
-                    suggestions = listOf("Nước ép trái cây")
-                )
+                _messages.update { it + botMsg }
             } else {
-                ChatMessage(
-                    id = (System.currentTimeMillis() + 1).toString(),
+                val errorMsg = ChatMessage(
+                    id = UUID.randomUUID().toString(),
                     sender = "bot",
-                    text = "Cảm ơn bạn. Mình ghi nhận thông tin và sẽ tư vấn thêm các chương trình khuyến mãi nếu bạn cần nhé!",
-                    suggestions = listOf("Khuyến mãi hôm nay", "Giao hàng bao lâu?")
+                    text = "Xin lỗi bạn, hiện tại hệ thống AI đang bận. Vui lòng thử lại sau nhé!"
                 )
+                _messages.update { it + errorMsg }
             }
-            
-            _messages.update { it + botResponse }
         }
+    }
+}
+
+class ChatbotViewModelFactory(
+    private val repository: ChatRepository
+) : ViewModelProvider.Factory {
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(ChatbotViewModel::class.java)) {
+            @Suppress("UNCHECKED_CAST")
+            return ChatbotViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }

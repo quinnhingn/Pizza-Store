@@ -59,6 +59,7 @@ export const WebSocketProvider = ({ children }) => {
       return () => {
         if (reconnectTimer) clearTimeout(reconnectTimer);
         if (ws.current) {
+          ws.current.onclose = null; // Prevent reconnect logic from firing on unmount
           ws.current.close(1000); // 1000 = Normal Closure
         }
       };

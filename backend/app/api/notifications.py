@@ -59,3 +59,31 @@ async def mark_all_notifications_read(
     await db.execute(stmt)
     await db.commit()
     return {"message": "Đã đánh dấu đã đọc tất cả thông báo."}
+
+@router.delete("/clear-all", status_code=status.HTTP_200_OK)
+async def clear_all_notifications(
+    type: str = "general",
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Clear all read notifications for current user.
+    If type == 'voucher', deletes only voucher_gift notifications.
+    Otherwise, deletes all other notifications.
+    """
+    from sqlalchemy import delete
+    
+    conditions = [
+        UserNotification.user_id == current_user.id,
+        UserNotification.is_read == True
+    ]
+    
+    if type == "voucher":
+        conditions.append(UserNotification.type == "voucher_gift")
+    else:
+        conditions.append(UserNotification.type != "voucher_gift")
+        
+    stmt = delete(UserNotification).where(*conditions)
+    await db.execute(stmt)
+    await db.commit()
+    return {"message": "Đã xóa tất cả thông báo đã đọc."}

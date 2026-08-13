@@ -53,7 +53,7 @@ QUAN TRỌNG:
 - Khi khách yêu cầu phức tạp (ví dụ: "gợi ý combo cho 4 người"), hãy trích xuất filter hợp lý nhất và trả lời tư vấn.
 """
 
-def get_chat_intent(user_message: str, history: list = None) -> dict:
+def get_chat_intent_sync(user_message: str, history: list = None) -> dict:
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is not configured in .env")
 
@@ -82,6 +82,41 @@ def get_chat_intent(user_message: str, history: list = None) -> dict:
         full_prompt = "\n".join(context_lines)
     
     response = model.generate_content(
+        full_prompt,
+        generation_config=generation_config,
+    )
+    
+    return json.loads(response.text)
+
+async def get_chat_intent(user_message: str, history: list = None) -> dict:
+    if not GEMINI_API_KEY:
+        raise ValueError("GEMINI_API_KEY is not configured in .env")
+
+    model = genai.GenerativeModel(
+        model_name="gemini-flash-latest",
+        system_instruction=SYSTEM_PROMPT,
+    )
+    
+    generation_config = genai.GenerationConfig(
+        response_mime_type="application/json",
+        response_schema=ChatIntent,
+    )
+    
+    # Build context from conversation history (simple & robust approach)
+    full_prompt = user_message
+    if history:
+        context_lines = ["[Lịch sử hội thoại gần đây để tham khảo ngữ cảnh]"]
+        for msg in history:
+            role = msg.get("role", "user")
+            text = msg.get("text", "")
+            if text:
+                label = "Khách" if role == "user" else "Bot"
+                context_lines.append(f"{label}: {text}")
+        context_lines.append("[Kết thúc lịch sử. Hãy trả lời câu hỏi mới nhất dưới đây, kết hợp với ngữ cảnh ở trên nếu cần]")
+        context_lines.append(f"Khách: {user_message}")
+        full_prompt = "\n".join(context_lines)
+    
+    response = await model.generate_content_async(
         full_prompt,
         generation_config=generation_config,
     )

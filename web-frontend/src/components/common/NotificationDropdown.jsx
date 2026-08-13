@@ -1,17 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, CheckCheck, Package, ShoppingBag, Gift, Info, Star } from 'lucide-react';
+import { Bell, CheckCheck, Package, ShoppingBag, Gift, Info, Star, X } from 'lucide-react';
 import useNotifications from '../../hooks/useNotifications';
 import vouchersAPI from '../../api/vouchersAPI';
 
 const NotificationDropdown = ({ type = 'general', isAdmin = false, isDarkBg = false }) => {
-  const { generalNotifications = [], voucherNotifications = [], generalUnreadCount = 0, voucherUnreadCount = 0, markAsRead, markAllAsRead } = useNotifications() || {};
+  const { generalNotifications = [], voucherNotifications = [], generalUnreadCount = 0, voucherUnreadCount = 0, markAsRead, markAllAsRead, clearAll } = useNotifications() || {};
   
   const isVoucher = type === 'voucher';
   const notifications = isVoucher ? voucherNotifications : generalNotifications;
   const unreadCount = isVoucher ? voucherUnreadCount : generalUnreadCount;
   const [isOpen, setIsOpen] = useState(false);
-  const [savedIds, setSavedIds] = useState(new Set());
+  const [savedCodes, setSavedCodes] = useState(new Set());
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
@@ -23,8 +23,27 @@ const NotificationDropdown = ({ type = 'general', isAdmin = false, isDarkBg = fa
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
+    
+    // Fetch saved voucher codes to show 'Đã lưu' persistently
+    if (!isAdmin) {
+      const fetchSavedCodes = async () => {
+        try {
+          const resActive = await vouchersAPI.getMySavedVouchers('active');
+          const resHistory = await vouchersAPI.getMySavedVouchers('history');
+          // Support both direct array response or { data } object
+          const active = Array.isArray(resActive) ? resActive : (resActive?.data || resActive?.items || []);
+          const history = Array.isArray(resHistory) ? resHistory : (resHistory?.data || resHistory?.items || []);
+          const codes = new Set([...active, ...history].map(v => v.voucher_code));
+          setSavedCodes(codes);
+        } catch (err) {
+          console.error('Failed to fetch saved vouchers', err);
+        }
+      };
+      fetchSavedCodes();
+    }
+    
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isAdmin]);
 
   const handleNotificationClick = async (item) => {
     if (!item.is_read) {
@@ -58,16 +77,16 @@ const NotificationDropdown = ({ type = 'general', isAdmin = false, isDarkBg = fa
     }
     try {
       await vouchersAPI.saveUserVoucher(item.reference_code, item.id);
-      setSavedIds(prev => {
+      setSavedCodes(prev => {
         const next = new Set(prev);
-        next.add(item.id);
+        if (item.reference_code) next.add(item.reference_code);
         return next;
       });
     } catch (err) {
-      if (err.response?.status === 400 && err.response.data.detail.includes('đã lưu')) {
-        setSavedIds(prev => {
+      if (err.response?.status === 400 && err.response.data.detail?.includes('đã lưu')) {
+        setSavedCodes(prev => {
           const next = new Set(prev);
-          next.add(item.id);
+          if (item.reference_code) next.add(item.reference_code);
           return next;
         });
       } else {
@@ -143,15 +162,36 @@ const NotificationDropdown = ({ type = 'general', isAdmin = false, isDarkBg = fa
                 </span>
               )}
             </div>
-            {unreadCount > 0 && (
-              <button
-                onClick={() => markAllAsRead()}
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors cursor-pointer"
-              >
-                <CheckCheck className="w-3.5 h-3.5" />
-                Đọc tất cả
-              </button>
-            )}
+            
+            {(() => {
+              if (notifications.length === 0) return null;
+              
+              const allVouchersSaved = isVoucher ? notifications.every(item => item.type !== 'voucher_gift' || !item.reference_code || savedCodes.has(item.reference_code)) : true;
+              const canClearAll = unreadCount === 0 && allVouchersSaved;
+
+              if (unreadCount > 0) {
+                return (
+                  <button
+                    onClick={() => markAllAsRead()}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    Đọc tất cả
+                  </button>
+                );
+              } else if (canClearAll) {
+                return (
+                  <button
+                    onClick={() => clearAll(isVoucher ? 'voucher' : 'general')}
+                    className="text-xs font-medium text-gray-400 hover:text-rose-600 flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    Xóa tất cả
+                  </button>
+                );
+              }
+              return null;
+            })()}
           </div>
 
           <div className="max-h-80 overflow-y-auto divide-y divide-gray-50">
@@ -185,7 +225,7 @@ const NotificationDropdown = ({ type = 'general', isAdmin = false, isDarkBg = fa
                     </p>
                     {item.type === 'voucher_gift' && item.reference_code && (
                       <div className="mt-2.5">
-                        {savedIds.has(item.id) ? (
+                        {savedCodes.has(item.reference_code) ? (
                           <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg flex items-center gap-1 w-fit">
                              <CheckCheck className="w-3.5 h-3.5" /> Đã lưu vào ví
                           </span>

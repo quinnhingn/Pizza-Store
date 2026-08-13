@@ -48,7 +48,10 @@ class ConnectionManager:
                     pass
 
     async def broadcast_to_admins(self, message: dict):
-        print(f"Broadcasting to admins: {self.admin_user_ids}, msg={message}")
+        try:
+            print(f"Broadcasting to admins: {self.admin_user_ids}, msg={message}")
+        except Exception:
+            pass
         for admin_id in list(self.admin_user_ids):
             if admin_id in self.active_connections:
                 for connection in self.active_connections[admin_id]:
@@ -56,7 +59,10 @@ class ConnectionManager:
                         await connection.send_json(message)
                         print(f"Broadcast sent to admin {admin_id}")
                     except Exception as e:
-                        print(f"Broadcast failed for admin {admin_id}: {e}")
+                        try:
+                            print(f"Broadcast failed for admin {admin_id}: {e}")
+                        except Exception:
+                            pass
 
 manager = ConnectionManager()
 

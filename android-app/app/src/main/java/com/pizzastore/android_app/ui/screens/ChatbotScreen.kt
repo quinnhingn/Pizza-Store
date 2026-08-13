@@ -267,7 +267,7 @@ fun ChatbotScreen(
                             color = Color.White,
                             border = borderStroke()
                         ) {
-                            Text("Đang gõ...", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
+                            Text("Đang nghĩ...", color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(12.dp))
                         }
                     }
                 }
@@ -311,8 +311,20 @@ fun MiniProductCard(product: Product, onClick: () -> Unit) {
                     color = Color.Black
                 )
                 Spacer(modifier = Modifier.height(4.dp))
+                val smallestPrice = if (!product.sizes.isNullOrEmpty()) {
+                    product.sizes.minOf { (product.price * it.price_multiplier) + it.extra_price }
+                } else {
+                    product.price
+                }
+
                 Text(
-                    text = "${String.format("%,.0f", product.price)} đ",
+                    text = "Chỉ từ",
+                    color = Color.Gray,
+                    fontSize = 10.sp,
+                    maxLines = 1
+                )
+                Text(
+                    text = "${String.format("%,.0f", smallestPrice)} đ",
                     fontWeight = FontWeight.Bold,
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.primary
