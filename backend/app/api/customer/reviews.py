@@ -100,7 +100,8 @@ async def submit_order_reviews(
             product_id=item.product_id,
             order_id=order_id,
             rating=item.rating,
-            comment=item.comment
+            comment=item.comment,
+            image_url=item.image_url
         )
         db.add(new_review)
         new_reviews.append(new_review)

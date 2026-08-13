@@ -134,11 +134,18 @@ const CustomerProductReviewsModal = ({ product, onClose }) => {
                         </div>
                       </div>
                       
-                      {review.comment && (
-                        <div className="mt-3">
-                          <p className="text-gray-700 leading-relaxed text-sm">
-                            {review.comment}
-                          </p>
+                      {(review.comment || review.image_url) && (
+                        <div className="mt-3 space-y-3">
+                          {review.comment && (
+                            <p className="text-gray-700 leading-relaxed text-sm">
+                              {review.comment}
+                            </p>
+                          )}
+                          {review.image_url && (
+                            <div className="w-24 h-24 rounded-xl overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition" onClick={() => window.open(review.image_url, '_blank')}>
+                              <img src={review.image_url} alt="Review" className="w-full h-full object-cover" />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

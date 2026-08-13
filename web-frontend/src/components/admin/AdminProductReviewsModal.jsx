@@ -180,11 +180,18 @@ const AdminProductReviewsModal = ({ product, onClose, onSuccess }) => {
                     </div>
                   </div>
                   
-                  {review.comment && (
-                    <div className="mt-4 pl-14">
-                      <p className="text-gray-700 bg-gray-50 rounded-xl p-3 border border-gray-100 italic text-sm">
-                        "{review.comment}"
-                      </p>
+                  {(review.comment || review.image_url) && (
+                    <div className="mt-4 pl-14 space-y-3">
+                      {review.comment && (
+                        <p className="text-gray-700 bg-gray-50 rounded-xl p-3 border border-gray-100 italic text-sm">
+                          "{review.comment}"
+                        </p>
+                      )}
+                      {review.image_url && (
+                        <div className="w-32 h-32 rounded-xl overflow-hidden border border-gray-200 cursor-pointer hover:opacity-90 transition shadow-sm" onClick={() => window.open(review.image_url, '_blank')}>
+                          <img src={review.image_url} alt="Review" className="w-full h-full object-cover" />
+                        </div>
+                      )}
                     </div>
                   )}
                   

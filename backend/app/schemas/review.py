@@ -6,6 +6,7 @@ class ReviewCreateItem(BaseModel):
     product_id: int
     rating: int = Field(..., ge=1, le=5)
     comment: Optional[str] = None
+    image_url: Optional[str] = None
 
 class ReviewSubmitRequest(BaseModel):
     reviews: List[ReviewCreateItem]
@@ -17,6 +18,7 @@ class ReviewResponse(BaseModel):
     order_id: int
     rating: int
     comment: Optional[str]
+    image_url: Optional[str] = None
     is_visible: bool
     created_at: datetime
     updated_at: datetime
@@ -45,6 +47,7 @@ class PublicReviewResponse(BaseModel):
     id: int
     rating: int
     comment: Optional[str]
+    image_url: Optional[str] = None
     created_at: datetime
     user: PublicReviewUser
 

@@ -12,6 +12,7 @@ class Review(Base):
     order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
     rating = Column(Integer, nullable=False)
     comment = Column(String(500), nullable=True)
+    image_url = Column(String(255), nullable=True)
     is_visible = Column(Boolean, default=True)
     is_read = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

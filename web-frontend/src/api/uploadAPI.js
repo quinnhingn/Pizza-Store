@@ -14,6 +14,15 @@ const uploadAPI = {
       timeout: 60000,
     });
   },
+  
+  uploadReviewImage: (formData) => {
+    return axiosInstance.post('/upload/review-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 60000,
+    });
+  },
 };
 
 export default uploadAPI;

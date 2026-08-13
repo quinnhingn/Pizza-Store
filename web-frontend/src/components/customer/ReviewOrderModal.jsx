@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import reviewsAPI from '../../api/reviewsAPI';
+import uploadAPI from '../../api/uploadAPI';
+import { Camera, X } from 'lucide-react';
 
 const ReviewOrderModal = ({ order, onClose, onSuccess }) => {
   const [reviewStatus, setReviewStatus] = useState([]);
@@ -27,7 +29,7 @@ const ReviewOrderModal = ({ order, onClose, onSuccess }) => {
       const initialInputs = {};
       items.forEach(item => {
         if (!item.is_reviewed) {
-          initialInputs[item.product_id] = { rating: 5, comment: '' };
+          initialInputs[item.product_id] = { rating: 5, comment: '', image_url: null, uploading: false };
         }
       });
       setReviewsInput(initialInputs);
@@ -54,6 +56,37 @@ const ReviewOrderModal = ({ order, onClose, onSuccess }) => {
     }));
   };
 
+  const handleImageUpload = async (productId, file) => {
+    if (!file) return;
+    try {
+      setReviewsInput(prev => ({
+        ...prev,
+        [productId]: { ...prev[productId], uploading: true }
+      }));
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await uploadAPI.uploadReviewImage(formData);
+      setReviewsInput(prev => ({
+        ...prev,
+        [productId]: { ...prev[productId], image_url: res.data.url, uploading: false }
+      }));
+    } catch (err) {
+      console.error(err);
+      alert('Lỗi khi tải ảnh lên');
+      setReviewsInput(prev => ({
+        ...prev,
+        [productId]: { ...prev[productId], uploading: false }
+      }));
+    }
+  };
+
+  const handleRemoveImage = (productId) => {
+    setReviewsInput(prev => ({
+      ...prev,
+      [productId]: { ...prev[productId], image_url: null }
+    }));
+  };
+
   const handleSubmit = async () => {
     // Collect all inputs
     const payload = [];
@@ -61,7 +94,8 @@ const ReviewOrderModal = ({ order, onClose, onSuccess }) => {
       payload.push({
         product_id: parseInt(productId),
         rating: data.rating,
-        comment: data.comment
+        comment: data.comment,
+        image_url: data.image_url || null
       });
     }
 
@@ -143,6 +177,11 @@ const ReviewOrderModal = ({ order, onClose, onSuccess }) => {
                       ))}
                     </div>
                     {pastReview.comment && <p className="text-gray-600 text-sm bg-gray-50 p-3 rounded-xl">{pastReview.comment}</p>}
+                    {pastReview.image_url && (
+                      <div className="mt-2">
+                        <img src={pastReview.image_url} alt="Review" className="w-24 h-24 object-cover rounded-xl border border-gray-200" />
+                      </div>
+                    )}
                   </div>
                 ) : (
                   currentInput && (
@@ -165,6 +204,38 @@ const ReviewOrderModal = ({ order, onClose, onSuccess }) => {
                         value={currentInput.comment}
                         onChange={(e) => handleCommentChange(item.product_id, e.target.value)}
                       />
+                      
+                      <div className="flex items-center gap-4 mt-2">
+                        {currentInput.image_url ? (
+                          <div className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
+                            <img src={currentInput.image_url} alt="Review" className="w-full h-full object-cover" />
+                            <button 
+                              onClick={() => handleRemoveImage(item.product_id)}
+                              className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 hover:bg-black/70 transition"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-red-500 hover:bg-red-50 transition text-gray-400 flex-col gap-1">
+                            {currentInput.uploading ? (
+                               <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                            ) : (
+                               <>
+                                 <Camera className="w-6 h-6" />
+                                 <span className="text-[10px] font-medium">Thêm ảnh</span>
+                               </>
+                            )}
+                            <input 
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              disabled={currentInput.uploading}
+                              onChange={(e) => handleImageUpload(item.product_id, e.target.files[0])} 
+                            />
+                          </label>
+                        )}
+                      </div>
                     </div>
                   )
                 )}
