@@ -57,4 +57,16 @@ object NetworkModule {
     fun provideVoucherApiService(retrofit: Retrofit): VoucherApiService {
         return retrofit.create(VoucherApiService::class.java)
     }
+
+    fun provideChatApiService(retrofit: Retrofit): ChatApiService {
+        return retrofit.create(ChatApiService::class.java)
+    }
+
+    fun provideReviewApiService(retrofit: Retrofit): ReviewApiService {
+        return retrofit.create(ReviewApiService::class.java)
+    }
+
+    fun provideUploadApiService(retrofit: Retrofit): UploadApiService {
+        return retrofit.create(UploadApiService::class.java)
+    }
 }

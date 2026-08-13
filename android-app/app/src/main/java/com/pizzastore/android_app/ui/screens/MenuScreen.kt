@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,25 +35,47 @@ fun MenuScreen(
     onProductClick: (Int) -> Unit,
     onCartClick: () -> Unit,
     onHomeClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    onChatbotClick: () -> Unit = {}
 ) {
     val homeState by viewModel.homeState.collectAsState()
     val cartItemCount by viewModel.cartItemCount.collectAsState()
     val categories by viewModel.categories.collectAsState()
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsState()
+    val isFiltering by viewModel.isFiltering.collectAsState()
     
     var searchQuery by remember { mutableStateOf("") }
     var reviewProduct by remember { mutableStateOf<Product?>(null) }
 
+    val reviews by viewModel.reviews.collectAsState()
+    val isReviewsLoading by viewModel.isReviewsLoading.collectAsState()
+
     if (reviewProduct != null) {
+        LaunchedEffect(reviewProduct) {
+            viewModel.fetchReviews(reviewProduct!!.id)
+        }
         ProductReviewsBottomSheet(
             product = reviewProduct!!,
-            onDismissRequest = { reviewProduct = null }
+            reviews = reviews,
+            isLoading = isReviewsLoading,
+            onDismissRequest = {
+                reviewProduct = null
+                viewModel.clearReviews()
+            }
         )
     }
 
     Scaffold(
         containerColor = Color.White,
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onChatbotClick,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = Color.White
+            ) {
+                Icon(Icons.Default.Face, contentDescription = "Trợ lý ảo AI")
+            }
+        },
         bottomBar = {
             NavigationBar(
                 containerColor = Color.White,
@@ -199,8 +222,20 @@ fun MenuScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Product List
-            when (val state = homeState) {
+            if (isFiltering) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(40.dp),
+                        strokeWidth = 3.dp
+                    )
+                }
+            } else {
+                // Product List
+                when (val state = homeState) {
                 is HomeState.Loading -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -257,6 +292,7 @@ fun MenuScreen(
             }
         }
     }
+}
 }
 
 @Composable

@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.pizzastore.android_app.network.CartItemCreateRequest
 import com.pizzastore.android_app.repository.CartRepository
+import com.pizzastore.android_app.network.PublicReviewItem
+import com.pizzastore.android_app.repository.ReviewRepository
 
 sealed class ProductDetailState {
     object Loading : ProductDetailState()
@@ -25,6 +27,7 @@ sealed class ProductDetailState {
 class ProductDetailViewModel(
     private val repository: ProductRepository,
     private val cartRepository: CartRepository,
+    private val reviewRepository: ReviewRepository,
     private val productId: Int,
     private val cartItemId: Int? = null
 ) : ViewModel() {
@@ -44,6 +47,12 @@ class ProductDetailViewModel(
     private val _note = MutableStateFlow("")
     val note: StateFlow<String> = _note
     
+    private val _reviews = MutableStateFlow<List<PublicReviewItem>>(emptyList())
+    val reviews: StateFlow<List<PublicReviewItem>> = _reviews
+    
+    private val _reviewsLoading = MutableStateFlow(false)
+    val reviewsLoading: StateFlow<Boolean> = _reviewsLoading
+
     val isEditing: Boolean = cartItemId != null
 
     val totalPrice: StateFlow<Double> = combine(
@@ -88,6 +97,9 @@ class ProductDetailViewModel(
                 if (product != null) {
                     _state.value = ProductDetailState.Success(product)
                     
+                    // Fetch reviews
+                    fetchReviews()
+                    
                     // If we're editing a cart item, fetch the cart and pre-fill data
                     if (cartItemId != null) {
                         val cartResult = cartRepository.getCart()
@@ -122,6 +134,17 @@ class ProductDetailViewModel(
                 }
             } else {
                 _state.value = ProductDetailState.Error(result.exceptionOrNull()?.message ?: "Failed to load product")
+            }
+        }
+    }
+    
+    private fun fetchReviews() {
+        viewModelScope.launch {
+            _reviewsLoading.value = true
+            val result = reviewRepository.getProductReviews(productId, 1, 20)
+            _reviewsLoading.value = false
+            if (result.isSuccess) {
+                _reviews.value = result.getOrNull()?.items ?: emptyList()
             }
         }
     }
@@ -193,7 +216,7 @@ class ProductDetailViewModel(
                     unit_price = finalUnitPrice
                 )
                 
-                val result = cartRepository.addItemToCart(request)
+                val result = cartRepository.addItemToCart(request, currentState.product)
                 _isAddingToCart.value = false
                 
                 if (result.isSuccess) {
@@ -214,13 +237,14 @@ class ProductDetailViewModel(
 class ProductDetailViewModelFactory(
     private val repository: ProductRepository,
     private val cartRepository: CartRepository,
+    private val reviewRepository: ReviewRepository,
     private val productId: Int,
     private val cartItemId: Int? = null
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProductDetailViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return ProductDetailViewModel(repository, cartRepository, productId, cartItemId) as T
+            return ProductDetailViewModel(repository, cartRepository, reviewRepository, productId, cartItemId) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

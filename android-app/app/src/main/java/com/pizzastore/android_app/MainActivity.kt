@@ -68,6 +68,10 @@ import com.pizzastore.android_app.viewmodel.OrderHistoryViewModel
 import com.pizzastore.android_app.viewmodel.OrderHistoryViewModelFactory
 import com.pizzastore.android_app.viewmodel.VoucherWalletViewModel
 import com.pizzastore.android_app.viewmodel.VoucherWalletViewModelFactory
+import com.pizzastore.android_app.repository.NotificationRepository
+import com.pizzastore.android_app.viewmodel.NotificationViewModel
+import com.pizzastore.android_app.viewmodel.NotificationViewModelFactory
+import com.pizzastore.android_app.ui.screens.NotificationScreen
 
 
 class MainActivity : ComponentActivity() {
@@ -82,10 +86,13 @@ class MainActivity : ComponentActivity() {
     private lateinit var bannerRepository: BannerRepository
     private lateinit var categoryRepository: CategoryRepository
     private lateinit var userRepository: UserRepository
+    private lateinit var chatRepository: com.pizzastore.android_app.repository.ChatRepository
     private lateinit var webSocketManager: com.pizzastore.android_app.network.WebSocketManager
+    private lateinit var notificationRepository: NotificationRepository
+    private lateinit var reviewRepository: com.pizzastore.android_app.repository.ReviewRepository
     
     private val loginViewModel: LoginViewModel by viewModels {
-        LoginViewModelFactory(authRepository)
+        LoginViewModelFactory(authRepository, cartRepository)
     }
 
     private val registerViewModel: RegisterViewModel by viewModels {
@@ -93,7 +100,7 @@ class MainActivity : ComponentActivity() {
     }
     
     private val homeViewModel: HomeViewModel by viewModels {
-        HomeViewModelFactory(productRepository, cartRepository, bannerRepository, categoryRepository)
+        HomeViewModelFactory(productRepository, cartRepository, bannerRepository, categoryRepository, reviewRepository)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -110,8 +117,9 @@ class MainActivity : ComponentActivity() {
         val productApiService = retrofit.create(ProductApiService::class.java)
         productRepository = ProductRepository(productApiService)
 
+        val guestCartManager = com.pizzastore.android_app.utils.GuestCartManager(applicationContext)
         val cartApiService = retrofit.create(CartApiService::class.java)
-        cartRepository = CartRepository(cartApiService)
+        cartRepository = CartRepository(cartApiService, tokenManager, guestCartManager)
 
         val orderApiService = retrofit.create(OrderApiService::class.java)
         orderRepository = OrderRepository(orderApiService)
@@ -128,7 +136,17 @@ class MainActivity : ComponentActivity() {
         val userApiService = retrofit.create(UserApiService::class.java)
         userRepository = UserRepository(userApiService)
 
+        val chatApiService = retrofit.create(com.pizzastore.android_app.network.ChatApiService::class.java)
+        chatRepository = com.pizzastore.android_app.repository.ChatRepository(chatApiService)
+
         webSocketManager = com.pizzastore.android_app.network.WebSocketManager(okHttpClient, tokenManager)
+
+        val notificationApiService = retrofit.create(com.pizzastore.android_app.network.NotificationApiService::class.java)
+        notificationRepository = NotificationRepository(notificationApiService)
+        
+        val reviewApiService = NetworkModule.provideReviewApiService(retrofit)
+        val uploadApiService = NetworkModule.provideUploadApiService(retrofit)
+        reviewRepository = com.pizzastore.android_app.repository.ReviewRepository(reviewApiService, uploadApiService)
 
         enableEdgeToEdge()
         setContent {
@@ -142,7 +160,10 @@ class MainActivity : ComponentActivity() {
                     orderRepository = orderRepository,
                     voucherRepository = voucherRepository,
                     userRepository = userRepository,
+                    chatRepository = chatRepository,
                     webSocketManager = webSocketManager,
+                    notificationRepository = notificationRepository,
+                    reviewRepository = reviewRepository,
                     tokenManager = tokenManager,
                     initialRoute = if (tokenManager.getToken() != null) "home" else "welcome"
                 )
@@ -161,7 +182,10 @@ fun AppNavigation(
     orderRepository: OrderRepository,
     voucherRepository: VoucherRepository,
     userRepository: UserRepository,
+    chatRepository: com.pizzastore.android_app.repository.ChatRepository,
     webSocketManager: com.pizzastore.android_app.network.WebSocketManager,
+    notificationRepository: NotificationRepository,
+    reviewRepository: com.pizzastore.android_app.repository.ReviewRepository,
     tokenManager: TokenManager,
     initialRoute: String
 ) {
@@ -239,6 +263,9 @@ fun AppNavigation(
                     },
                     onChatbotClick = {
                         navController.navigate("chatbot")
+                    },
+                    onNotificationClick = {
+                        navController.navigate("notifications")
                     }
                 )
             }
@@ -258,6 +285,9 @@ fun AppNavigation(
                     },
                     onProfileClick = {
                         navController.navigate("profile")
+                    },
+                    onChatbotClick = {
+                        navController.navigate("chatbot")
                     }
                 )
             }
@@ -270,7 +300,7 @@ fun AppNavigation(
                 // For a specific screen, we can create the ViewModel here or use Hilt.
                 // Here we use a manual factory with the provided repository and productId.
                 val detailViewModel: ProductDetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = ProductDetailViewModelFactory(productRepository, cartRepository, productId)
+                    factory = ProductDetailViewModelFactory(productRepository, cartRepository, reviewRepository, productId)
                 )
                 
                 ProductDetailScreen(
@@ -309,7 +339,7 @@ fun AppNavigation(
                 val productId = backStackEntry.arguments?.getInt("productId") ?: return@composable
                 
                 val detailViewModel: ProductDetailViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
-                    factory = ProductDetailViewModelFactory(productRepository, cartRepository, productId, cartItemId)
+                    factory = ProductDetailViewModelFactory(productRepository, cartRepository, reviewRepository, productId, cartItemId)
                 )
                 
                 ProductDetailScreen(
@@ -397,6 +427,9 @@ fun AppNavigation(
 
                 OrderHistoryScreen(
                     viewModel = orderHistoryViewModel,
+                    reviewOrderViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                        factory = com.pizzastore.android_app.viewmodel.ReviewOrderViewModelFactory(reviewRepository)
+                    ),
                     screenType = type,
                     onBackClick = { navController.popBackStack() }
                 )
@@ -410,8 +443,21 @@ fun AppNavigation(
                     onBackClick = { navController.popBackStack() }
                 )
             }
+            composable("notifications") {
+                val notifViewModel: NotificationViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = NotificationViewModelFactory(notificationRepository, voucherRepository, webSocketManager)
+                )
+                NotificationScreen(
+                    viewModel = notifViewModel,
+                    onBackClick = { navController.popBackStack() }
+                )
+            }
             composable("chatbot") {
+                val chatbotViewModel: com.pizzastore.android_app.viewmodel.ChatbotViewModel = androidx.lifecycle.viewmodel.compose.viewModel(
+                    factory = com.pizzastore.android_app.viewmodel.ChatbotViewModelFactory(chatRepository)
+                )
                 ChatbotScreen(
+                    viewModel = chatbotViewModel,
                     onBackClick = { navController.popBackStack() },
                     onProductClick = { productId ->
                         navController.navigate("detail/$productId")

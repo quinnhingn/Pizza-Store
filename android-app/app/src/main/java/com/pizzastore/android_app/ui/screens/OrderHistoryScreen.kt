@@ -23,6 +23,10 @@ import com.pizzastore.android_app.network.OrderResponse
 import com.pizzastore.android_app.ui.components.OrderDetailBottomSheet
 import com.pizzastore.android_app.viewmodel.OrderHistoryState
 import com.pizzastore.android_app.viewmodel.OrderHistoryViewModel
+import com.pizzastore.android_app.viewmodel.ReviewOrderViewModel
+import com.pizzastore.android_app.ui.components.ReviewOrderBottomSheet
+import com.pizzastore.android_app.network.ReviewStatusItem
+import kotlinx.coroutines.launch
 
 val TRACKING_TABS = listOf(
     "all" to "Tất cả",
@@ -41,6 +45,7 @@ val HISTORY_TABS = listOf(
 @Composable
 fun OrderHistoryScreen(
     viewModel: OrderHistoryViewModel,
+    reviewOrderViewModel: ReviewOrderViewModel,
     screenType: String,
     onBackClick: () -> Unit
 ) {
@@ -51,6 +56,11 @@ fun OrderHistoryScreen(
     val currentTabs = if (screenType == "tracking") TRACKING_TABS else HISTORY_TABS
     val title = if (screenType == "tracking") "Theo dõi đơn hàng" else "Lịch sử mua hàng"
     var orderToView by remember { mutableStateOf<OrderResponse?>(null) }
+    
+    // States for review
+    var orderToReview by remember { mutableStateOf<OrderResponse?>(null) }
+    var reviewStatuses by remember { mutableStateOf<List<ReviewStatusItem>>(emptyList()) }
+    val scope = rememberCoroutineScope()
 
     // Handle auto-hide notification
     LaunchedEffect(notification) {
@@ -141,7 +151,18 @@ fun OrderHistoryScreen(
                                     order = order,
                                     onCancel = { viewModel.cancelOrder(order.id) },
                                     onConfirmReceived = { viewModel.confirmOrderReceived(order.id) },
-                                    onViewDetails = { orderToView = order }
+                                    onViewDetails = { orderToView = order },
+                                    onReview = { 
+                                        // Need OrderDetail for Review Form, simulate it or use what we have
+                                        scope.launch {
+                                            // Mock fetching status or let viewmodel handle it later, 
+                                            // Actually order contains order.items? let's check
+                                            // order is OrderResponse. We can construct OrderDetail or just use it.
+                                            // We need to fetch review status. Wait, we can fetch review status via reviewRepository.
+                                            // We can do it inside a launched effect or let ReviewOrderBottomSheet do it.
+                                        }
+                                        orderToReview = order
+                                    }
                                 )
                             }
                         }
@@ -178,6 +199,27 @@ fun OrderHistoryScreen(
             onDismiss = { orderToView = null }
         )
     }
+    
+    // Launched effect to fetch review statuses when orderToReview changes
+    LaunchedEffect(orderToReview) {
+        if (orderToReview != null) {
+            reviewOrderViewModel.fetchReviewStatus(orderToReview!!.id)
+        }
+    }
+    
+    val reviewStatusesFromViewModel by reviewOrderViewModel.reviewStatuses.collectAsState()
+
+    if (orderToReview != null) {
+        ReviewOrderBottomSheet(
+            order = orderToReview!!,
+            reviewStatuses = reviewStatusesFromViewModel,
+            viewModel = reviewOrderViewModel,
+            onDismissRequest = { orderToReview = null },
+            onSuccess = { 
+                viewModel.loadOrders() 
+            }
+        )
+    }
 }
 
 fun isOrderReviewable(order: OrderResponse): Boolean {
@@ -210,7 +252,8 @@ fun OrderCardDetailed(
     order: OrderResponse,
     onCancel: () -> Unit,
     onConfirmReceived: () -> Unit,
-    onViewDetails: () -> Unit
+    onViewDetails: () -> Unit,
+    onReview: () -> Unit
 ) {
     val dateStr = order.created_at.take(10).split("-").reversed().joinToString("/")
     
@@ -366,7 +409,7 @@ fun OrderCardDetailed(
                     if (isOrderReviewable(order)) {
                         if (order.has_reviews) {
                             OutlinedButton(
-                                onClick = { /* TODO: Review */ },
+                                onClick = onReview,
                                 shape = RoundedCornerShape(8.dp),
                                 border = BorderStroke(1.dp, Color.LightGray),
                                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.DarkGray, containerColor = Color.White),
@@ -376,7 +419,7 @@ fun OrderCardDetailed(
                             }
                         } else {
                             Button(
-                                onClick = { /* TODO: Review */ },
+                                onClick = onReview,
                                 shape = RoundedCornerShape(8.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE53935)),
                                 modifier = Modifier.height(36.dp).then(spacingModifier)

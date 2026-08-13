@@ -10,6 +10,8 @@ import com.pizzastore.android_app.repository.ProductRepository
 import com.pizzastore.android_app.repository.CartRepository
 import com.pizzastore.android_app.repository.BannerRepository
 import com.pizzastore.android_app.repository.CategoryRepository
+import com.pizzastore.android_app.repository.ReviewRepository
+import com.pizzastore.android_app.network.PublicReviewItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -24,7 +26,8 @@ class HomeViewModel(
     private val repository: ProductRepository,
     private val cartRepository: CartRepository,
     private val bannerRepository: BannerRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val reviewRepository: ReviewRepository
 ) : ViewModel() {
     private val _homeState = MutableStateFlow<HomeState>(HomeState.Loading)
     val homeState: StateFlow<HomeState> = _homeState
@@ -38,8 +41,17 @@ class HomeViewModel(
     private val _selectedCategoryId = MutableStateFlow<Int?>(null)
     val selectedCategoryId: StateFlow<Int?> = _selectedCategoryId
     
+    private val _isFiltering = MutableStateFlow(false)
+    val isFiltering: StateFlow<Boolean> = _isFiltering
+    
     val cartItemCount: StateFlow<Int> = cartRepository.cartItemCount
     
+    private val _reviews = MutableStateFlow<List<PublicReviewItem>>(emptyList())
+    val reviews: StateFlow<List<PublicReviewItem>> = _reviews
+    
+    private val _isReviewsLoading = MutableStateFlow(false)
+    val isReviewsLoading: StateFlow<Boolean> = _isReviewsLoading
+
     init {
         loadBanners()
         loadCategories()
@@ -65,7 +77,18 @@ class HomeViewModel(
     }
 
     fun selectCategory(categoryId: Int?) {
-        _selectedCategoryId.value = categoryId
+        viewModelScope.launch {
+            _isFiltering.value = true
+            _selectedCategoryId.value = categoryId
+            kotlinx.coroutines.delay(300) // Simulate a slight loading animation for filtering
+            _isFiltering.value = false
+        }
+    }
+    
+    fun reloadAll() {
+        loadBanners()
+        loadCategories()
+        loadProducts()
     }
     
     fun loadProducts() {
@@ -79,18 +102,36 @@ class HomeViewModel(
             }
         }
     }
+    
+    fun fetchReviews(productId: Int) {
+        viewModelScope.launch {
+            _isReviewsLoading.value = true
+            val result = reviewRepository.getProductReviews(productId, 1, 20)
+            _isReviewsLoading.value = false
+            if (result.isSuccess) {
+                _reviews.value = result.getOrNull()?.items ?: emptyList()
+            } else {
+                _reviews.value = emptyList()
+            }
+        }
+    }
+    
+    fun clearReviews() {
+        _reviews.value = emptyList()
+    }
 }
 
 class HomeViewModelFactory(
     private val repository: ProductRepository,
     private val cartRepository: CartRepository,
     private val bannerRepository: BannerRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val reviewRepository: ReviewRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return HomeViewModel(repository, cartRepository, bannerRepository, categoryRepository) as T
+            return HomeViewModel(repository, cartRepository, bannerRepository, categoryRepository, reviewRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

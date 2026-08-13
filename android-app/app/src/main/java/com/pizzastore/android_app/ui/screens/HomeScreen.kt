@@ -12,13 +12,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Face
 import androidx.compose.material3.*
@@ -34,6 +32,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import com.pizzastore.android_app.network.Product
 import com.pizzastore.android_app.network.BannerResponse
 import com.pizzastore.android_app.network.CategoryResponse
@@ -56,7 +55,8 @@ fun HomeScreen(
     onCartClick: () -> Unit,
     onMenuClick: () -> Unit,
     onProfileClick: () -> Unit,
-    onChatbotClick: () -> Unit = {}
+    onChatbotClick: () -> Unit = {},
+    onNotificationClick: () -> Unit = {}
 ) {
     val homeState by viewModel.homeState.collectAsState()
     val cartItemCount by viewModel.cartItemCount.collectAsState()
@@ -71,6 +71,8 @@ fun HomeScreen(
     var minPriceFilter by remember { mutableStateOf<Float?>(null) }
     var maxPriceFilter by remember { mutableStateOf<Float?>(null) }
     var reviewProduct by remember { mutableStateOf<Product?>(null) }
+    var isRefreshing by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     if (showFilterSheet) {
         PriceFilterBottomSheet(
@@ -88,10 +90,21 @@ fun HomeScreen(
         )
     }
 
+    val reviews by viewModel.reviews.collectAsState()
+    val isReviewsLoading by viewModel.isReviewsLoading.collectAsState()
+
     if (reviewProduct != null) {
+        LaunchedEffect(reviewProduct) {
+            viewModel.fetchReviews(reviewProduct!!.id)
+        }
         ProductReviewsBottomSheet(
             product = reviewProduct!!,
-            onDismissRequest = { reviewProduct = null }
+            reviews = reviews,
+            isLoading = isReviewsLoading,
+            onDismissRequest = {
+                reviewProduct = null
+                viewModel.clearReviews()
+            }
         )
     }
 
@@ -153,13 +166,23 @@ fun HomeScreen(
             }
         }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(bottom = 24.dp) // extra padding at the bottom of the list
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                viewModel.reloadAll()
+                coroutineScope.launch {
+                    delay(1000)
+                    isRefreshing = false
+                }
+            },
+            modifier = Modifier.fillMaxSize().padding(padding)
         ) {
-            item { Spacer(modifier = Modifier.height(16.dp)) }
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp)
+            ) {
+                item { Spacer(modifier = Modifier.height(16.dp)) }
 
             // 1. Top Header Row (Location + Logo + Cart)
             item {
@@ -176,7 +199,15 @@ fun HomeScreen(
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.primary,
                         fontWeight = FontWeight.ExtraBold,
-                        fontSize = 22.sp
+                        fontSize = 22.sp,
+                        modifier = Modifier.clickable {
+                            isRefreshing = true
+                            viewModel.reloadAll()
+                            coroutineScope.launch {
+                                delay(1000)
+                                isRefreshing = false
+                            }
+                        }
                     )
 
                     // Actions (Right)
@@ -184,24 +215,14 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Voucher Icon
-                        Icon(
-                            imageVector = Icons.Default.Star,
-                            contentDescription = "Voucher",
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable { /* TODO: Navigate to Voucher */ },
-                            tint = Color.Black
-                        )
-                        
                         // Notification Icon
                         Icon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = "Thông báo",
                             modifier = Modifier
                                 .size(24.dp)
-                                .clickable { /* TODO: Navigate to Notification */ },
-                            tint = Color.Black
+                                .clickable { onNotificationClick() },
+                            tint = Color.Gray
                         )
 
                         // Cart Icon
@@ -213,17 +234,23 @@ fun HomeScreen(
                                 imageVector = Icons.Default.ShoppingCart,
                                 contentDescription = "Giỏ hàng",
                                 modifier = Modifier.size(24.dp),
-                                tint = Color.Black
+                                tint = MaterialTheme.colorScheme.primary
                             )
                             if (cartItemCount > 0) {
                                 Surface(
                                     shape = CircleShape,
                                     color = MaterialTheme.colorScheme.error,
                                     modifier = Modifier
-                                        .size(8.dp)
                                         .align(Alignment.TopEnd)
-                                        .offset(x = 2.dp, y = (-2).dp)
-                                ) {}
+                                        .offset(x = 6.dp, y = (-6).dp)
+                                ) {
+                                    Text(
+                                        text = if (cartItemCount > 99) "99+" else cartItemCount.toString(),
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -544,7 +571,11 @@ fun HomeScreen(
                                 item {
                                     SectionHeader(
                                         title = category.name,
-                                        actionText = "Xem thêm"
+                                        actionText = "Xem thêm",
+                                        onActionClick = {
+                                            viewModel.selectCategory(category.id)
+                                            onMenuClick()
+                                        }
                                     )
                                 }
                                 
@@ -568,6 +599,7 @@ fun HomeScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

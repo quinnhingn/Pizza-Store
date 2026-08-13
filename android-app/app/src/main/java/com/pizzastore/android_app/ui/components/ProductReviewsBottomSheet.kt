@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
@@ -13,30 +14,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.pizzastore.android_app.network.Product
 
-data class MockReview(
-    val id: Int,
-    val userName: String,
-    val rating: Int,
-    val content: String,
-    val date: String
-)
-
-val mockReviewsData = listOf(
-    MockReview(1, "Nguyễn Văn A", 5, "Pizza rất ngon, đế bánh giòn, topping đầy đặn. Sẽ ủng hộ tiếp!", "12/08/2026"),
-    MockReview(2, "Trần Thị B", 4, "Giao hàng nhanh, đóng gói cẩn thận nhưng hơi ít phô mai.", "10/08/2026"),
-    MockReview(3, "Lê Hoàng C", 5, "Hương vị tuyệt vời, giá cả hợp lý so với chất lượng.", "05/08/2026"),
-    MockReview(4, "Phạm D", 3, "Bánh hơi nguội khi nhận được, cần cải thiện tốc độ giao hàng.", "01/08/2026")
-)
+import com.pizzastore.android_app.network.PublicReviewItem
+import java.text.SimpleDateFormat
+import java.util.Locale
+import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductReviewsBottomSheet(
     product: Product,
+    reviews: List<PublicReviewItem>,
+    isLoading: Boolean,
     onDismissRequest: () -> Unit
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
@@ -86,7 +81,16 @@ fun ProductReviewsBottomSheet(
 
             Divider(color = Color.LightGray, thickness = 0.5.dp)
 
-            if (product.total_reviews == 0) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFFE53935))
+                }
+            } else if (product.total_reviews == 0 || reviews.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -101,8 +105,7 @@ fun ProductReviewsBottomSheet(
                     contentPadding = PaddingValues(vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Show reviews based on total_reviews to simulate data.
-                    items(mockReviewsData.take(product.total_reviews.coerceAtLeast(1))) { review ->
+                    items(reviews) { review ->
                         ReviewItem(review)
                         Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 0.5.dp, modifier = Modifier.padding(top = 16.dp))
                     }
@@ -114,7 +117,19 @@ fun ProductReviewsBottomSheet(
 }
 
 @Composable
-fun ReviewItem(review: MockReview) {
+fun ReviewItem(review: PublicReviewItem) {
+    val userName = review.user?.full_name ?: "Khách hàng"
+    
+    // Format date
+    val dateStr = try {
+        val formatClean = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+        val date = formatClean.parse(review.created_at.take(19))
+        val formatOut = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        if (date != null) formatOut.format(date) else review.created_at
+    } catch (e: Exception) {
+        review.created_at
+    }
+
     Row(modifier = Modifier.fillMaxWidth()) {
         // Avatar mock
         Box(
@@ -125,7 +140,7 @@ fun ReviewItem(review: MockReview) {
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = review.userName.first().uppercase(),
+                text = userName.first().uppercase(),
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                 fontWeight = FontWeight.Bold
             )
@@ -140,12 +155,12 @@ fun ReviewItem(review: MockReview) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = review.userName,
+                    text = userName,
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = review.date,
+                    text = dateStr,
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray
                 )
@@ -162,12 +177,26 @@ fun ReviewItem(review: MockReview) {
                 }
             }
             
-            Text(
-                text = review.content,
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.DarkGray,
-                lineHeight = 16.sp
-            )
+            if (!review.comment.isNullOrEmpty()) {
+                Text(
+                    text = review.comment,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.DarkGray,
+                    lineHeight = 16.sp,
+                    modifier = Modifier.padding(bottom = if (review.image_url != null) 8.dp else 0.dp)
+                )
+            }
+            
+            if (review.image_url != null) {
+                AsyncImage(
+                    model = review.image_url,
+                    contentDescription = "Review Image",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            }
         }
     }
 }

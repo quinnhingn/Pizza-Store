@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.pizzastore.android_app.network.UserLogin
 import com.pizzastore.android_app.repository.AuthRepository
+import com.pizzastore.android_app.repository.CartRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -16,7 +17,10 @@ sealed class LoginState {
     data class Error(val message: String) : LoginState()
 }
 
-class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
+class LoginViewModel(
+    private val authRepository: AuthRepository,
+    private val cartRepository: CartRepository
+) : ViewModel() {
     
     private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
     val loginState: StateFlow<LoginState> = _loginState
@@ -26,6 +30,8 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
             _loginState.value = LoginState.Loading
             val result = authRepository.login(UserLogin(email, password))
             if (result.isSuccess) {
+                // Sync guest cart to server
+                cartRepository.syncGuestCartToServer()
                 _loginState.value = LoginState.Success
             } else {
                 _loginState.value = LoginState.Error(result.exceptionOrNull()?.message ?: "Login failed")
@@ -38,11 +44,14 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
     }
 }
 
-class LoginViewModelFactory(private val repository: AuthRepository) : ViewModelProvider.Factory {
+class LoginViewModelFactory(
+    private val authRepository: AuthRepository,
+    private val cartRepository: CartRepository
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return LoginViewModel(repository) as T
+            return LoginViewModel(authRepository, cartRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
