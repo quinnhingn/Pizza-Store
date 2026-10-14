@@ -8,9 +8,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object NetworkModule {
-    // 10.0.2.2 is the special IP alias to host loopback interface (localhost) from Android Emulator
-    private const val BASE_URL = "http://10.0.2.2:8000/"
-
+    private const val BASE_URL = "https://10.0.2.2:8000/"
     fun provideOkHttpClient(tokenManager: TokenManager): OkHttpClient {
         val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY

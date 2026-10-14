@@ -58,6 +58,8 @@ dependencies {
     implementation(libs.navigation.compose)
     implementation(libs.coil.compose)
 
+    implementation("androidx.security:security-crypto-ktx:1.1.0")
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

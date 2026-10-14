@@ -22,3 +22,7 @@ build/
 # PyInstaller build outputs
 dist/
 *.spec
+
+backend/cert.pem
+backend/key.pem
+android-app/app/src/main/res/raw/my_local_cert.pem

@@ -1,4 +1,6 @@
 import os
+import sys
+import uvicorn
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from typing import Dict
 
-# Nhập tất cả các router từ các module API
+# Nhập tất cả các router từ các module API[cite: 2]
 from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products, cart, vouchers, orders, notifications, ws, chat
 from app.api.admin import banners as admin_banners
 from app.api.admin import dashboard as admin_dashboard
@@ -16,7 +18,7 @@ from app.api.public import banners as public_banners
 from app.api.public import reviews as public_reviews
 from app.api.customer import reviews as customer_reviews
 
-# Đảm bảo thư mục lưu ảnh tĩnh tồn tại (dùng làm fallback khi Cloudinary lỗi)
+# Đảm bảo thư mục lưu ảnh tĩnh tồn tại (dùng làm fallback khi Cloudinary lỗi)[cite: 2]
 os.makedirs("static/uploads", exist_ok=True)
 
 app = FastAPI(
@@ -25,7 +27,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Cấu hình CORS: cho phép frontend truy cập từ localhost
+# Cấu hình CORS: cho phép frontend truy cập từ localhost[cite: 2]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"],
@@ -34,7 +36,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Xử lý lỗi vi phạm ràng buộc toàn vẹn dữ liệu (ví dụ: xóa sản phẩm đang có trong đơn hàng)
+# Xử lý lỗi vi phạm ràng buộc toàn vẹn dữ liệu (ví dụ: xóa sản phẩm đang có trong đơn hàng)[cite: 2]
 @app.exception_handler(IntegrityError)
 async def integrity_error_handler(request: Request, exc: IntegrityError):
     return JSONResponse(
@@ -42,7 +44,7 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
         content={"detail": "Thao tác không thể thực hiện do ràng buộc dữ liệu toàn vẹn (ví dụ: sản phẩm đang nằm trong lịch sử đơn hàng hoặc giỏ hàng)."}
     )
 
-# Xử lý toàn bộ lỗi bất ngờ chưa được bắt (global error handler)
+# Xử lý toàn bộ lỗi bất ngờ chưa được bắt (global error handler)[cite: 2]
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
@@ -50,10 +52,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": f"Lỗi hệ thống nội bộ: {str(exc)}"}
     )
 
-# Mount thư mục static để phục vụ ảnh lưu cục bộ (fallback)
+# Mount thư mục static để phục vụ ảnh lưu cục bộ (fallback)[cite: 2]
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Đăng ký các Router theo nhóm chức năng
+# Đăng ký các Router theo nhóm chức năng[cite: 2]
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users & Addresses"])
 app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
@@ -78,10 +80,34 @@ app.include_router(customer_reviews.router, prefix="/api/customer", tags=["Custo
 app.include_router(public_banners.router, prefix="/api/banners/public", tags=["Public - Banners"])
 
 
-# Endpoint kiểm tra server còn hoạt động hay không
+# Endpoint kiểm tra server còn hoạt động hay không[cite: 2]
 @app.get("/api/ping", tags=["Health Check"])
 async def ping_server() -> Dict[str, str]:
     return {
         "status": "success",
         "message": "Pong! FastAPI server is running."
     }
+
+# --- CẤU HÌNH SSL VÀ PYINSTALLER ---
+def get_resource_path(relative_path):
+    """Lấy đường dẫn tuyệt đối đến resource, tương thích với thư mục giải nén của PyInstaller."""
+    try:
+        # PyInstaller tạo ra thư mục temp và lưu đường dẫn trong _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
+if __name__ == "__main__":
+    # Khai báo đường dẫn tới file chứng chỉ cert.pem và key.pem
+    cert_path = get_resource_path("cert.pem")
+    key_path = get_resource_path("key.pem")
+    
+    # Khởi chạy Uvicorn với cấu hình HTTPS
+    uvicorn.run(
+        app,
+        host="0.0.0.0",
+        port=8000,
+        ssl_keyfile=key_path,
+        ssl_certfile=cert_path
+    )
