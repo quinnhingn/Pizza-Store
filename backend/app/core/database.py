@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Load environment variables from .env file
+# Đọc các biến môi trường từ file .env
 load_dotenv()
 
 DATABASE_URL: str | None = os.getenv("DATABASE_URL")
@@ -12,24 +12,24 @@ DATABASE_URL: str | None = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     raise ValueError("DATABASE_URL environment variable is not set.")
 
-# Create SSL context for Neon PostgreSQL
+# Tạo SSL context để kết nối an toàn với Neon PostgreSQL
 ssl_context = ssl.create_default_context()
 
-# Initialize Async Engine for PostgreSQL (Neon)
+# Khởi tạo Async Engine cho PostgreSQL (Neon)
 engine = create_async_engine(
     DATABASE_URL,
-    echo=False,  # Disabled to avoid spamming terminal
+    echo=False,  # Tắt log SQL để tránh spam console
     future=True,
     connect_args={"ssl": ssl_context}
 )
 
-# Configure Async Session Local
+# Cấu hình AsyncSession để sử dụng xuyên suốt ứng dụng
 AsyncSessionLocal = sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False,
+    expire_on_commit=False,  # Giữ lại dữ liệu sau khi commit, tránh lazy load lỗi
     autoflush=False
 )
 
-# Base class for SQLAlchemy models
+# Lớp nền (Base) cho tất cả các model SQLAlchemy
 Base = declarative_base()

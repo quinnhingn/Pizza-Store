@@ -83,7 +83,8 @@ const ChatbotWidget = () => {
     setInputText('');
     setIsTyping(true);
 
-    // Build conversation history from recent messages (last 6 messages = 3 turns)
+    // Bước 1: Trích xuất lịch sử Chat (Lấy 6 tin nhắn gần nhất = 3 lượt hỏi đáp)
+    // Việc gửi kèm lịch sử giúp AI (Gemini) hiểu được ngữ cảnh của cuộc trò chuyện thay vì chỉ hiểu mỗi câu hỏi hiện tại.
     const recentMessages = updatedMessages
       .filter(m => m.sender === 'user' || m.sender === 'bot')
       .slice(-6)
@@ -93,9 +94,11 @@ const ChatbotWidget = () => {
       }));
 
     try {
+      // Bước 2: Gọi API đẩy câu hỏi và lịch sử chat xuống Backend (Backend sẽ parse bằng Pydantic và gọi Google Gemini API)
       const response = await chatAPI.sendMessage(text, recentMessages);
       const data = response.data || response;
       
+      // Bước 3: Nhận cấu trúc JSON từ Backend trả về, render tin nhắn và các Thẻ sản phẩm (Product Cards) lên màn hình
       const botMsg = {
         sender: 'bot',
         text: data.reply_message,
@@ -157,7 +160,7 @@ const ChatbotWidget = () => {
                   </div>
                 </div>
 
-                {/* Product Cards (if any) */}
+                {/* Bước 4: Chỗ này là UI để render ra danh sách các món ăn mà AI đã lọc được từ Database */}
                 {msg.products && msg.products.length > 0 && (
                   <div className="mt-3 ml-10 w-[260px] sm:w-[300px] flex overflow-x-auto gap-3 pb-2 custom-scrollbar snap-x">
                     {msg.products.map(product => (

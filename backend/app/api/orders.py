@@ -25,14 +25,14 @@ async def create_order(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Create a new order from current user's cart using an atomic database transaction.
-    - Validates cart is not empty.
-    - Validates & applies voucher discount (if provided) and increments used_count.
-    - Creates Order & OrderItems.
-    - Clears user's cart items.
+    Tạo đơn hàng mới từ giỏ hàng của người dùng hiện tại sử dụng giao dịch cơ sở dữ liệu nguyên tử (atomic database transaction).
+    - Kiểm tra giỏ hàng không trống.
+    - Kiểm tra & áp dụng mã giảm giá (nếu có) và tăng số lượt sử dụng.
+    - Tạo Đơn hàng (Order) & Chi tiết đơn hàng (OrderItems).
+    - Làm sạch giỏ hàng của người dùng.
     """
     try:
-        # 1. Fetch cart items with product loaded
+        # Bước 1: Lấy danh sách sản phẩm trong giỏ hàng
         stmt = select(CartItem).where(CartItem.user_id == current_user.id)
         result = await db.execute(stmt)
         cart_items = result.scalars().all()
@@ -43,12 +43,12 @@ async def create_order(
                 detail="Giỏ hàng đang trống, không thể đặt hàng."
             )
 
-        # Calculate subtotal
+        # Tính tổng tiền tạm tính của giỏ hàng (Subtotal)
         subtotal = sum(Decimal(str(item.total_price)) for item in cart_items)
         discount_amount = Decimal("0.00")
         voucher_code_clean = payload.voucher_code.strip().upper() if payload.voucher_code else None
 
-        # 2. Validate and apply voucher if provided
+        # Bước 2: Kiểm tra và áp dụng mã giảm giá (Voucher) nếu có
         if voucher_code_clean:
             v_stmt = select(Voucher).where(Voucher.code == voucher_code_clean)
             v_result = await db.execute(v_stmt)
@@ -60,7 +60,7 @@ async def create_order(
                     detail="Mã giảm giá không tồn tại hoặc đã ngừng hoạt động."
                 )
 
-            # Check one-time usage per user
+            # Kiểm tra khách hàng đã dùng mã này bao giờ chưa (mỗi mã 1 lần/khách)
             chk_used = await db.execute(
                 select(Order).where(
                     Order.user_id == current_user.id,
@@ -73,6 +73,7 @@ async def create_order(
                     detail="Bạn đã sử dụng mã giảm giá này rồi. Mỗi mã chỉ áp dụng 1 lần cho 1 khách hàng."
                 )
 
+            # Kiểm tra voucher còn trong thời hạn không (theo múi giờ Việt Nam UTC+7)
             VN_TZ = timezone(timedelta(hours=7))
             now = datetime.now(VN_TZ).replace(tzinfo=None)
             if now < voucher.start_date or now > voucher.end_date:
@@ -81,12 +82,14 @@ async def create_order(
                     detail="Mã giảm giá chưa đến hạn hoặc đã hết hạn sử dụng."
                 )
 
+            # Kiểm tra voucher còn lượt sử dụng không
             if voucher.usage_limit is not None and voucher.used_count >= voucher.usage_limit:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Mã giảm giá đã hết lượt sử dụng."
                 )
 
+            # Kiểm tra giá trị đơn hàng đạt mức tối thiểu để áp dụng voucher
             if voucher.min_order_value is not None and subtotal < Decimal(str(voucher.min_order_value)):
                 formatted_min = f"{float(voucher.min_order_value):,.0f}".replace(",", ".")
                 raise HTTPException(
@@ -94,24 +97,26 @@ async def create_order(
                     detail=f"Đơn hàng cần đạt tối thiểu {formatted_min}đ để áp dụng mã này."
                 )
 
-            # Calculate discount
+            # Tính toán số tiền được giảm (theo phần trăm hoặc số tiền cố định)
             if voucher.discount_percent is not None and voucher.discount_percent > 0:
                 discount_amount = (subtotal * Decimal(str(voucher.discount_percent))) / Decimal("100")
             elif voucher.discount_amount is not None and voucher.discount_amount > 0:
                 discount_amount = Decimal(str(voucher.discount_amount))
 
+            # Áp dụng giới hạn giảm tối đa nếu có
             if voucher.max_discount is not None and voucher.max_discount > 0:
                 if discount_amount > Decimal(str(voucher.max_discount)):
                     discount_amount = Decimal(str(voucher.max_discount))
 
+            # Đảm bảo số tiền giảm không vượt quá tổng đơn hàng
             if discount_amount > subtotal:
                 discount_amount = subtotal
 
-            # Increment voucher usage count inside transaction
+            # Tăng số lượt sử dụng của Voucher (nằm trong transaction)
             voucher.used_count += 1
             db.add(voucher)
 
-            # Find UserVoucher and mark as used
+            # Đánh dấu khách hàng đã sử dụng mã này trong bảng UserVoucher
             uv_stmt = select(UserVoucher).where(
                 UserVoucher.user_id == current_user.id,
                 UserVoucher.voucher_code == voucher.code
@@ -122,12 +127,14 @@ async def create_order(
                 user_voucher.is_used = True
                 db.add(user_voucher)
 
-        # 3. Calculate shipping fee and final total
+        # Bước 3: Tính phí giao hàng và tổng tiền cuối cùng
+        # Miễn phí vận chuyển cho đơn hàng từ 200.000đ trở lên
         shipping_fee = Decimal("0.00") if subtotal >= Decimal("200000.00") else Decimal("25000.00")
         total_amount = subtotal - discount_amount + shipping_fee
         if total_amount < Decimal("0.00"):
             total_amount = Decimal("0.00")
 
+        # Tạo mã đơn hàng duy nhất dựa trên timestamp và user_id
         VN_TZ = timezone(timedelta(hours=7))
         order_code = f"ORD-{int(datetime.now(VN_TZ).timestamp())}-{current_user.id}"
         new_order = Order(
@@ -144,9 +151,9 @@ async def create_order(
             note=payload.note
         )
         db.add(new_order)
-        await db.flush()  # Flush to assign new_order.id
+        await db.flush()  # Flush để lấy new_order.id trước khi tạo OrderItems
 
-        # 5. Create OrderItems & clear CartItems
+        # Bước 4: Tạo chi tiết đơn hàng (OrderItems) và xóa giỏ hàng
         for c_item in cart_items:
             o_item = OrderItem(
                 order_id=new_order.id,
@@ -157,9 +164,9 @@ async def create_order(
                 toppings=c_item.toppings
             )
             db.add(o_item)
-            await db.delete(c_item)
+            await db.delete(c_item)  # Xóa item khỏi giỏ hàng
 
-        # 5.1 Create notifications for all admins
+        # Bước 5: Gửi thông báo có đơn hàng mới cho toàn bộ Quản trị viên (Admin)
         admin_stmt = select(User).where(User.role == "admin", User.is_active == True)
         admin_res = await db.execute(admin_stmt)
         admins = admin_res.scalars().all()
@@ -173,10 +180,10 @@ async def create_order(
             )
             db.add(notif)
 
-        # 6. Commit transaction atomically
+        # Bước 6: Lưu toàn bộ giao dịch vào Database (Commit). Nếu lỗi sẽ tự động Rollback toàn bộ
         await db.commit()
 
-        # Re-fetch order with items and products loaded cleanly for response
+        # Truy vấn lại đơn hàng vừa tạo để lấy đầy đủ dữ liệu trả về cho Frontend
         fetch_stmt = (
             select(Order)
             .options(selectinload(Order.items).selectinload(OrderItem.product))
@@ -185,7 +192,7 @@ async def create_order(
         refresh_result = await db.execute(fetch_stmt)
         complete_order = refresh_result.scalar_one()
         
-        # Broadcast WebSocket event to admins
+        # Bắn sự kiện WebSocket tới màn hình Kanban của Admin để cập nhật UI thời gian thực
         await manager.broadcast_to_admins({
             "type": "new_order",
             "message": f"Đơn hàng mới {order_code} vừa được đặt.",
@@ -195,9 +202,11 @@ async def create_order(
         return complete_order
 
     except HTTPException as http_ex:
+        # Rollback khi gặp lỗi nghiệp vụ (HTTPException) để tránh dữ liệu bẩn
         await db.rollback()
         raise http_ex
     except Exception as ex:
+        # Rollback khi gặp lỗi hệ thống bất ngờ
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -210,7 +219,7 @@ async def get_my_orders(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get order history for current logged-in user.
+    Lấy danh sách lịch sử đơn hàng của khách hàng hiện tại, sắp xếp theo thời gian mới nhất.
     """
     stmt = (
         select(Order)
@@ -221,6 +230,7 @@ async def get_my_orders(
     result = await db.execute(stmt)
     orders = list(result.scalars().all())
 
+    # Kiểm tra xem mỗi đơn hàng đã có review chưa, để frontend biết hiển thị nút "Đánh giá"
     if orders:
         from app.models.review import Review
         order_ids = [o.id for o in orders]
@@ -239,7 +249,7 @@ async def get_all_orders(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Get all orders in the system.
+    Dành riêng cho Admin: Lấy danh sách toàn bộ đơn hàng trong hệ thống (hiển thị lên Kanban).
     """
     stmt = (
         select(Order)
@@ -258,7 +268,7 @@ async def update_order_status(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Update order status (pending -> confirmed -> shipping -> completed / cancelled).
+    Dành riêng cho Admin: Cập nhật trạng thái đơn hàng (pending -> confirmed -> shipping -> completed / cancelled).
     """
     stmt = (
         select(Order)
@@ -274,6 +284,7 @@ async def update_order_status(
             detail="Đơn hàng không tồn tại."
         )
 
+    # Định nghĩa luồng chuyển trạng thái hợp lệ (state machine)
     valid_transitions = {
         "pending": ["confirmed", "cancelled"],
         "confirmed": ["shipping", "cancelled"],
@@ -282,12 +293,14 @@ async def update_order_status(
         "cancelled": []
     }
 
+    # Không cho phép thay đổi trạng thái của đơn đã kết thúc
     if order.status in ["cancelled", "completed"] and payload.status != order.status:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Đơn hàng đã kết thúc (Hoàn thành hoặc Đã hủy), không thể chuyển trạng thái."
         )
 
+    # Kiểm tra trạng thái chuyển đến có hợp lệ không
     allowed_next = valid_transitions.get(order.status, [])
     if payload.status not in allowed_next and payload.status != order.status:
         raise HTTPException(
@@ -295,6 +308,7 @@ async def update_order_status(
             detail=f"Trạng thái '{payload.status}' không hợp lệ từ trạng thái hiện tại '{order.status}'. Chỉ có thể chuyển sang: {', '.join(allowed_next)}"
         )
 
+    # Yêu cầu khách hàng xác nhận đã nhận hàng trước khi Admin hoàn thành đơn
     if payload.status == "completed" and not order.customer_confirmed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -304,7 +318,7 @@ async def update_order_status(
     order.status = payload.status
     db.add(order)
 
-    # Nếu chuyển sang 'shipping', thông báo cho Customer
+    # Nếu chuyển sang trạng thái 'shipping', gửi thông báo cho Khách hàng
     if payload.status == "shipping":
         notif = UserNotification(
             user_id=order.user_id,
@@ -318,6 +332,7 @@ async def update_order_status(
     await db.commit()
     await db.refresh(order)
     
+    # Chuẩn bị nội dung thông báo tương ứng từng trạng thái
     status_messages = {
         "confirmed": f"Đơn hàng {order.order_code} đã được quán xác nhận.",
         "shipping": f"Đơn hàng {order.order_code} đang trên đường giao đến bạn!",
@@ -325,7 +340,7 @@ async def update_order_status(
         "cancelled": f"Đơn hàng {order.order_code} đã bị hủy."
     }
 
-    # Broadcast status update
+    # Gửi sự kiện WebSocket báo cập nhật trạng thái đơn hàng tới Khách hàng và Admin
     event_data = {
         "type": "order_update",
         "message": status_messages.get(payload.status, f"Đơn hàng {order.order_code} đã được cập nhật trạng thái."),
@@ -344,8 +359,8 @@ async def cancel_order(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Cancel an order. Only allowed when order status is 'pending'.
-    Customer can only cancel their own orders. Admin can cancel any order in 'pending' state.
+    Hủy đơn hàng. Chỉ cho phép khi đơn hàng đang ở trạng thái 'pending' (Chờ xác nhận).
+    Khách hàng chỉ có thể hủy đơn của mình. Admin có thể hủy bất kỳ đơn 'pending' nào.
     """
     stmt = (
         select(Order)
@@ -361,12 +376,14 @@ async def cancel_order(
             detail="Đơn hàng không tồn tại."
         )
 
+    # Kiểm tra quyền: chỉ cho phép hủy đơn của chính mình (trừ Admin)
     if current_user.role != "admin" and order.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không có quyền hủy đơn hàng này."
         )
 
+    # Chỉ cho phép hủy khi đơn đang ở trạng thái 'pending'
     if order.status != "pending":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -378,7 +395,7 @@ async def cancel_order(
     await db.commit()
     await db.refresh(order)
     
-    # Broadcast cancellation
+    # Gửi sự kiện WebSocket báo đơn hàng bị hủy tới cả khách hàng lẫn Admin
     event_data = {
         "type": "order_update",
         "message": f"Đơn hàng {order.order_code} đã bị hủy.",
@@ -397,8 +414,8 @@ async def confirm_order_received(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Customer confirms they have received the order when status is 'shipping'.
-    Sets customer_confirmed = True and sends notification to admins.
+    Khách hàng xác nhận đã nhận được hàng khi đơn hàng đang ở trạng thái 'shipping' (Đang giao).
+    Thiết lập customer_confirmed = True và gửi thông báo cho Admin để họ có thể hoàn thành đơn.
     """
     stmt = (
         select(Order)
@@ -408,12 +425,14 @@ async def confirm_order_received(
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
 
+    # Kiểm tra đơn hàng thuộc về khách hàng hiện tại
     if not order or order.user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Đơn hàng không tồn tại hoặc không thuộc tài khoản của bạn."
         )
 
+    # Chỉ được xác nhận khi đơn đang ở trạng thái 'shipping'
     if order.status != "shipping":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -423,7 +442,7 @@ async def confirm_order_received(
     order.customer_confirmed = True
     db.add(order)
 
-    # Thông báo cho tất cả Admin biết khách đã nhận hàng
+    # Thông báo cho tất cả Admin biết khách đã nhận hàng (để Admin hoàn thành đơn)
     admin_stmt = select(User).where(User.role == "admin", User.is_active == True)
     admin_res = await db.execute(admin_stmt)
     admins = admin_res.scalars().all()
@@ -440,7 +459,7 @@ async def confirm_order_received(
     await db.commit()
     await db.refresh(order)
 
-    # Broadcast confirm received
+    # Gửi sự kiện WebSocket báo Khách đã nhận hàng tới cả Khách hàng và Admin
     event_data = {
         "type": "order_update",
         "message": f"Khách hàng đã xác nhận nhận đơn hàng {order.order_code}.",

@@ -14,11 +14,13 @@ from app.models.product import Product
 router = APIRouter()
 
 def require_admin(user: User = Depends(get_current_user)):
+    """Hàm dependency kiểm tra quyền Admin. Từ chối nếu không phải Admin."""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return user
 
 class RecentOrder(BaseModel):
+    """Schema đơn hàng gần đây hiển thị trên dashboard."""
     id: int
     order_code: str
     customer_name: str
@@ -27,6 +29,7 @@ class RecentOrder(BaseModel):
     created_at: datetime
 
 class TodayStatsResponse(BaseModel):
+    """Schema tổng hợp thống kê trong ngày hôm nay."""
     revenue_today: float
     orders_today: int
     pending_orders: int
@@ -34,10 +37,12 @@ class TodayStatsResponse(BaseModel):
     recent_orders: List[RecentOrder]
 
 class ChartData(BaseModel):
+    """Schema dữ liệu một điểm trên biểu đồ doanh thu."""
     date: str
     revenue: float
 
 class TopProduct(BaseModel):
+    """Schema thông tin sản phẩm bán chạy nhất."""
     id: int
     name: str
     image_url: Optional[str]
@@ -45,6 +50,7 @@ class TopProduct(BaseModel):
     revenue: float
 
 class AnalyticsResponse(BaseModel):
+    """Schema phản hồi toàn bộ dữ liệu phân tích theo khoảng thời gian."""
     total_revenue: float
     total_orders: int
     avg_order_value: float
@@ -59,22 +65,26 @@ async def get_today_stats(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
+    """
+    Lấy các số liệu thống kê tổng quan trong ngày hôm nay dành cho Admin Dashboard.
+    Bao gồm: doanh thu, số đơn, khách mới, đơn đang chờ, và danh sách đơn cần xử lý.
+    """
     VN_TZ = timezone(timedelta(hours=7))
     now = datetime.now(VN_TZ)
     start_of_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Doanh thu hôm nay
+    # Doanh thu hôm nay (chỉ tính đơn đã hoàn thành)
     rev_stmt = select(func.sum(Order.total_amount)).where(
         Order.status == 'completed',
         Order.created_at >= start_of_today
     )
     revenue_today = float((await db.execute(rev_stmt)).scalar() or 0)
 
-    # Đơn mới hôm nay (tất cả trạng thái)
+    # Tổng số đơn mới trong ngày hôm nay (tất cả trạng thái)
     ord_stmt = select(func.count(Order.id)).where(Order.created_at >= start_of_today)
     orders_today = (await db.execute(ord_stmt)).scalar() or 0
 
-    # Khách hàng mới hôm nay
+    # Số khách hàng mới đăng ký hôm nay
     start_of_today_naive = start_of_today.replace(tzinfo=None)
     cust_stmt = select(func.count(User.id)).where(
         User.role == 'customer',
@@ -82,11 +92,11 @@ async def get_today_stats(
     )
     new_customers_today = (await db.execute(cust_stmt)).scalar() or 0
 
-    # Đơn đang chờ xử lý (không tính theo ngày, vì có thể từ hôm qua)
+    # Số đơn đang chờ xử lý (không giới hạn theo ngày, có thể từ hôm qua)
     pend_stmt = select(func.count(Order.id)).where(Order.status == 'pending')
     pending_orders = (await db.execute(pend_stmt)).scalar() or 0
 
-    # Danh sách đơn hàng cần chú ý (Mới nhất, trạng thái pending/confirmed/shipping)
+    # Danh sách đơn hàng cần chú ý (đang ở các trạng thái chưa kết thúc)
     recent_stmt = (
         select(Order)
         .where(Order.status.in_(['pending', 'confirmed', 'shipping']))
@@ -116,15 +126,20 @@ async def get_today_stats(
 
 @router.get("/analytics", response_model=AnalyticsResponse)
 async def get_analytics(
-    start_date: str = Query(..., description="ISO date string"),
-    end_date: str = Query(..., description="ISO date string"),
+    start_date: str = Query(..., description="Chuỗi ngày ISO làm điểm bắt đầu"),
+    end_date: str = Query(..., description="Chuỗi ngày ISO làm điểm kết thúc"),
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
+    """
+    Lấy dữ liệu phân tích chi tiết theo khoảng thời gian cho Admin Dashboard.
+    Bao gồm: tổng doanh thu, tỷ lệ hoàn thành, biểu đồ doanh thu, và top sản phẩm bán chạy.
+    """
+    # Chuyển đổi chuỗi ISO về datetime naive để truy vấn DB
     start = datetime.fromisoformat(start_date.replace('Z', '+00:00')).replace(tzinfo=None)
     end = datetime.fromisoformat(end_date.replace('Z', '+00:00')).replace(tzinfo=None)
 
-    # Tổng quan
+    # Tổng quan trong khoảng thời gian
     rev_stmt = select(func.sum(Order.total_amount)).where(
         Order.status == 'completed', 
         Order.created_at >= start, 
@@ -135,6 +150,7 @@ async def get_analytics(
     ord_stmt = select(func.count(Order.id)).where(Order.created_at >= start, Order.created_at <= end)
     total_orders = (await db.execute(ord_stmt)).scalar() or 0
 
+    # Tính giá trị trung bình mỗi đơn và tỷ lệ hoàn thành
     avg_order_value = 0.0
     completed_stmt = select(func.count(Order.id)).where(
         Order.status == 'completed', 
@@ -147,7 +163,7 @@ async def get_analytics(
 
     completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0.0
 
-    # Phân bổ trạng thái
+    # Phân bổ trạng thái đơn hàng (để vẽ biểu đồ tròn)
     status_stmt = select(Order.status, func.count(Order.id)).where(
         Order.created_at >= start, 
         Order.created_at <= end
@@ -155,7 +171,7 @@ async def get_analytics(
     status_rows = (await db.execute(status_stmt)).all()
     status_distribution = {row[0]: row[1] for row in status_rows}
 
-    # Top products
+    # Top 5 sản phẩm bán chạy nhất theo số lượng và doanh thu
     top_prod_stmt = (
         select(
             Product.id,
@@ -182,7 +198,7 @@ async def get_analytics(
         ) for row in top_prod_rows
     ]
 
-    # Revenue chart (theo ngày)
+    # Biểu đồ doanh thu theo ngày (dùng để vẽ line chart)
     chart_stmt = (
         select(
             func.date(Order.created_at).label("date"),

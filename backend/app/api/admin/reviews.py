@@ -21,16 +21,17 @@ async def get_all_product_reviews(
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_current_admin_user)
 ):
+    """
+    Admin only: Lấy danh sách tất cả sản phẩm cùng thống kê đánh giá (phân trang).
+    Bao gồm: điểm trung bình, tổng số review, và số review chưa đọc.
+    """
     offset = (page - 1) * page_size
 
-    # Count all products
+    # Đếm tổng số sản phẩm để tính phân trang
     count_query = select(func.count()).select_from(Product)
     total_count = await db.scalar(count_query)
 
-    # Get products and left join reviews to aggregate
-    # Using asyncpg requires careful grouping or simple python processing
-    # Since we can just query all products and their reviews, let's do a subquery or python loop
-    # For pagination, we paginate products
+    # Lấy danh sách sản phẩm theo trang (phân trang theo sản phẩm)
     query = select(Product).order_by(Product.id).offset(offset).limit(page_size)
     result = await db.execute(query)
     products = result.scalars().all()
@@ -39,17 +40,18 @@ async def get_all_product_reviews(
     if products:
         product_ids = [p.id for p in products]
         
-        # Get all reviews for these products
+        # Truy vấn thống kê review cho tất cả sản phẩm trong trang này
         review_query = select(
             Review.product_id, 
             func.count(Review.id).label('total'), 
             func.avg(Review.rating).label('avg'),
-            func.sum(case((Review.is_read == False, 1), else_=0)).label('new_count')
+            func.sum(case((Review.is_read == False, 1), else_=0)).label('new_count')  # Đếm review chưa đọc
         ).where(Review.product_id.in_(product_ids)).group_by(Review.product_id)
         
         review_result = await db.execute(review_query)
         review_stats = {r.product_id: r for r in review_result.all()}
 
+        # Gắn thông tin thống kê vào từng sản phẩm
         for p in products:
             stats = review_stats.get(p.id)
             items.append(ProductReviewAggregate(
@@ -79,11 +81,17 @@ async def get_product_reviews(
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_current_admin_user)
 ):
+    """
+    Admin only: Lấy danh sách chi tiết tất cả review của một sản phẩm cụ thể (phân trang).
+    Bao gồm cả review ẩn để Admin có thể quản lý.
+    """
     offset = (page - 1) * page_size
 
+    # Đếm tổng số review của sản phẩm
     count_query = select(func.count()).select_from(Review).where(Review.product_id == product_id)
     total_count = await db.scalar(count_query)
 
+    # Lấy danh sách review kèm thông tin user, sắp xếp mới nhất trước
     query = select(Review).where(Review.product_id == product_id).options(selectinload(Review.user)).order_by(Review.created_at.desc()).offset(offset).limit(page_size)
     result = await db.execute(query)
     reviews = result.scalars().all()
@@ -104,6 +112,10 @@ async def mark_product_reviews_read(
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_current_admin_user)
 ):
+    """
+    Admin only: Đánh dấu tất cả review chưa đọc của một sản phẩm là đã đọc.
+    Dùng khi Admin click vào sản phẩm để xem review.
+    """
     query = select(Review).where(Review.product_id == product_id, Review.is_read == False)
     result = await db.execute(query)
     reviews = result.scalars().all()
@@ -120,6 +132,10 @@ async def toggle_review_visibility(
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_current_admin_user)
 ):
+    """
+    Admin only: Bật/tắt trạng thái hiển thị của review (ẩn/hiện review vi phạm).
+    Review bị ẩn sẽ không hiển thị cho khách hàng xem.
+    """
     result = await db.execute(select(Review).where(Review.id == review_id))
     review = result.scalar_one_or_none()
     
@@ -137,6 +153,9 @@ async def delete_review(
     db: AsyncSession = Depends(get_db),
     admin=Depends(get_current_admin_user)
 ):
+    """
+    Admin only: Xóa vĩnh viễn một review khỏi hệ thống.
+    """
     result = await db.execute(select(Review).where(Review.id == review_id))
     review = result.scalar_one_or_none()
     

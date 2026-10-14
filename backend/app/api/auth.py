@@ -11,17 +11,17 @@ router = APIRouter()
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
-    """Handle user registration and password hashing."""
+    """Xử lý đăng ký tài khoản người dùng mới và mã hóa mật khẩu."""
     if user_in.password != user_in.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
     
-    # Validate unique email
+    # Kiểm tra email đã tồn tại trong hệ thống chưa
     stmt = select(User).where(User.email == user_in.email)
     result = await db.execute(stmt)
     if result.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create new user record
+    # Tạo bản ghi người dùng mới với mật khẩu đã được hash
     new_user = User(
         email=user_in.email,
         password_hash=get_password_hash(user_in.password),
@@ -43,17 +43,18 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login")
 async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
-    """Authenticate user and issue JWT Access Token."""
+    """Xác thực người dùng và cấp JWT Access Token khi đăng nhập thành công."""
     stmt = select(User).where(User.email == user_in.email)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     
+    # Kiểm tra email tồn tại và mật khẩu khớp
     if not user or not verify_password(user_in.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account is disabled")
     
-    # Generate Token
+    # Tạo JWT Token chứa user_id
     access_token = create_access_token(subject=user.id)
     
     return {
@@ -73,7 +74,7 @@ async def login(user_in: UserLogin, db: AsyncSession = Depends(get_db)):
 
 @router.post("/logout")
 async def logout():
-    """Handle logout (Client-side token deletion)."""
+    """Đăng xuất: token sẽ được xóa ở phía client, server không cần xử lý gì thêm."""
     return {
         "status": "success",
         "data": None,

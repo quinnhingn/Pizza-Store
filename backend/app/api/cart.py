@@ -14,17 +14,24 @@ from app.schemas.cart import CartItemCreate, CartItemUpdate, CartItemResponse, C
 router = APIRouter()
 
 def normalize_toppings(toppings: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Chuẩn hóa danh sách topping bằng cách sắp xếp theo tên để so sánh đồng nhất."""
+    # Sắp xếp mảng Topping theo tên Alphabet để tránh lỗi sai thứ tự (Ví dụ: [Phô mai, Xúc xích] sẽ giống [Xúc xích, Phô mai] sau khi sort)
     if not toppings:
         return []
     # Sắp xếp toppings theo tên để so sánh đồng nhất
     return sorted(toppings, key=lambda x: str(x.get("name", "") or x.get("topping_name", "")))
 
 def toppings_match(top1: List[Dict[str, Any]], top2: List[Dict[str, Any]]) -> bool:
+    """
+    So sánh hai danh sách topping có giống nhau không.
+    Dùng để phát hiện item trùng khi thêm vào giỏ hàng.
+    """
     norm1 = normalize_toppings(top1)
     norm2 = normalize_toppings(top2)
     if len(norm1) != len(norm2):
         return False
     for t1, t2 in zip(norm1, norm2):
+        # Hỗ trợ cả 2 dạng key: 'name' và 'topping_name'
         name1 = str(t1.get("name", "") or t1.get("topping_name", "")).strip().lower()
         name2 = str(t2.get("name", "") or t2.get("topping_name", "")).strip().lower()
         if name1 != name2:
@@ -44,6 +51,7 @@ async def get_cart(
     )
     items = result.scalars().all()
 
+    # Tính tổng số lượng và tổng tiền tạm tính
     total_items = sum(item.quantity for item in items)
     subtotal = sum(Decimal(str(item.total_price or 0)) for item in items)
 
@@ -59,8 +67,8 @@ async def add_item_to_cart(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Thêm sản phẩm vào giỏ hàng. Nếu trùng thông số size, topping, note -> gộp số lượng."""
-    # Kiểm tra sản phẩm có tồn tại và đang kinh doanh hay không
+    """Thêm sản phẩm vào giỏ hàng. Kiểm tra kĩ thông số size, topping, note, nếu trùng khớp 100% thì gộp số lượng (quantity)."""
+    # Bước 1: Kiểm tra sản phẩm có tồn tại và đang kinh doanh hay không
     prod_res = await db.execute(select(Product).where(Product.id == payload.product_id))
     product = prod_res.scalar_one_or_none()
     if not product:
@@ -68,7 +76,7 @@ async def add_item_to_cart(
     if not product.is_available:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Sản phẩm hiện đang tạm ngưng bán")
 
-    # Lấy toàn bộ cart items của user cùng product_id để kiểm tra gộp
+    # Bước 2: Lấy toàn bộ sản phẩm trong giỏ hàng hiện tại của user (Chỉ lấy món có cùng ID để thu hẹp phạm vi tìm kiếm)
     exist_res = await db.execute(
         select(CartItem).where(
             CartItem.user_id == current_user.id,
@@ -81,6 +89,8 @@ async def add_item_to_cart(
     target_note = (payload.note or "").strip().lower()
     target_size = (payload.size_name or "").strip().lower()
 
+    # Duyệt qua các item hiện có để tìm item trùng (cùng size, note và topping)
+    # Thuật toán đối chiếu (Matching Algorithm) để kiểm tra trùng khớp tuyệt đối
     for item in existing_items:
         item_note = (item.note or "").strip().lower()
         item_size = (item.size_name or "").strip().lower()
@@ -90,6 +100,7 @@ async def add_item_to_cart(
                 break
 
     if matched_item:
+        # Trùng khớp 100% -> Cộng dồn số lượng và cập nhật tiền
         matched_item.quantity += payload.quantity
         matched_item.unit_price = payload.unit_price
         matched_item.total_price = matched_item.unit_price * matched_item.quantity
@@ -97,7 +108,7 @@ async def add_item_to_cart(
         await db.refresh(matched_item)
         return matched_item
 
-    # Nếu không trùng, tạo mới cart item
+    # Nếu chạy hết vòng lặp mà không có món nào trùng khớp 100% -> Khởi tạo một dòng (row) mới trong giỏ hàng
     total_calc = payload.unit_price * payload.quantity
     new_item = CartItem(
         user_id=current_user.id,
@@ -129,6 +140,7 @@ async def update_cart_item(
     if not item:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cart item not found")
 
+    # Cập nhật từng trường nếu được cung cấp trong payload
     if payload.quantity is not None:
         item.quantity = payload.quantity
     if payload.size_name is not None:
@@ -140,7 +152,7 @@ async def update_cart_item(
     if payload.unit_price is not None:
         item.unit_price = payload.unit_price
 
-    # Tính lại tổng tiền
+    # Tính lại tổng tiền sau khi cập nhật
     item.total_price = Decimal(str(item.unit_price or 0)) * item.quantity
 
     # Kiểm tra xem sau khi update có bị trùng với một item khác đã có trong giỏ không
@@ -151,7 +163,7 @@ async def update_cart_item(
         select(CartItem).where(
             CartItem.user_id == current_user.id,
             CartItem.product_id == item.product_id,
-            CartItem.id != item.id
+            CartItem.id != item.id  # Loại trừ chính item hiện tại
         )
     )
     other_items = exist_res.scalars().all()
@@ -166,7 +178,7 @@ async def update_cart_item(
                 break
 
     if matched_other:
-        # Gộp số lượng vào matched_other và xóa item hiện tại
+        # Gộp số lượng vào matched_other và xóa item hiện tại để tránh trùng lặp
         matched_other.quantity += item.quantity
         matched_other.total_price = Decimal(str(matched_other.unit_price or 0)) * matched_other.quantity
         await db.delete(item)

@@ -17,14 +17,14 @@ async def get_all_customers_admin(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(get_current_admin_user)
 ):
-    """Admin only: Get list of all active customer profiles for gifting or management."""
+    """Admin only: Lấy danh sách tất cả khách hàng đang hoạt động (dùng cho tặng voucher hoặc quản lý)."""
     stmt = select(User).where(User.role == "customer", User.is_active == True).order_by(User.id.asc())
     result = await db.execute(stmt)
     return result.scalars().all()
 
 @router.get("/me", response_model=UserData)
 async def get_my_profile(current_user: User = Depends(get_current_user)):
-    """Get current logged-in user profile."""
+    """Lấy thông tin hồ sơ của người dùng đang đăng nhập."""
     return current_user
 
 @router.put("/me", response_model=UserData)
@@ -33,7 +33,7 @@ async def update_my_profile(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update current user profile (full_name)."""
+    """Cập nhật tên hiển thị của người dùng hiện tại."""
     current_user.full_name = payload.full_name
     await db.commit()
     await db.refresh(current_user)
@@ -44,7 +44,7 @@ async def get_my_addresses(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get list of addresses for current user, sorted by default first, then newest."""
+    """Lấy danh sách địa chỉ của người dùng hiện tại. Địa chỉ mặc định hiển thị trước."""
     stmt = (
         select(UserAddress)
         .where(UserAddress.user_id == current_user.id)
@@ -60,18 +60,18 @@ async def create_address(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Create a new address for current user."""
-    # Check existing addresses
+    """Thêm địa chỉ giao hàng mới cho người dùng hiện tại."""
+    # Kiểm tra danh sách địa chỉ hiện có
     stmt = select(UserAddress).where(UserAddress.user_id == current_user.id)
     result = await db.execute(stmt)
     existing_addresses = result.scalars().all()
 
     is_default = payload.is_default
     if not existing_addresses:
-        # First address must be default
+        # Địa chỉ đầu tiên luôn phải là mặc định
         is_default = True
     elif is_default:
-        # Unset previous default addresses
+        # Bỏ mặc định của các địa chỉ cũ trước khi đặt cái mới làm mặc định
         await db.execute(
             update(UserAddress)
             .where(UserAddress.user_id == current_user.id)
@@ -94,7 +94,7 @@ async def update_address(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Update an existing address."""
+    """Cập nhật thông tin địa chỉ giao hàng."""
     stmt = select(UserAddress).where(
         UserAddress.id == address_id,
         UserAddress.user_id == current_user.id
@@ -105,7 +105,7 @@ async def update_address(
         raise HTTPException(status_code=404, detail="Address not found")
 
     if payload.is_default is True:
-        # Unset previous defaults
+        # Hủy mặc định của các địa chỉ khác trước khi đặt địa chỉ này làm mặc định
         await db.execute(
             update(UserAddress)
             .where(UserAddress.user_id == current_user.id, UserAddress.id != address_id)
@@ -126,7 +126,7 @@ async def delete_address(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete an address."""
+    """Xóa địa chỉ giao hàng. Nếu xóa địa chỉ mặc định, sẽ tự động đặt địa chỉ mới nhất còn lại làm mặc định."""
     stmt = select(UserAddress).where(
         UserAddress.id == address_id,
         UserAddress.user_id == current_user.id
@@ -141,7 +141,7 @@ async def delete_address(
     await db.commit()
 
     if was_default:
-        # Assign default to the newest remaining address if available
+        # Tự động gán địa chỉ mới nhất còn lại làm mặc định
         stmt_remaining = (
             select(UserAddress)
             .where(UserAddress.user_id == current_user.id)
@@ -162,7 +162,7 @@ async def set_default_address(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Set an address as default."""
+    """Đặt một địa chỉ làm địa chỉ giao hàng mặc định. Tự động hủy mặc định của các địa chỉ khác."""
     stmt = select(UserAddress).where(
         UserAddress.id == address_id,
         UserAddress.user_id == current_user.id
@@ -172,6 +172,7 @@ async def set_default_address(
     if not address:
         raise HTTPException(status_code=404, detail="Address not found")
 
+    # Hủy mặc định của tất cả địa chỉ hiện tại
     await db.execute(
         update(UserAddress)
         .where(UserAddress.user_id == current_user.id)

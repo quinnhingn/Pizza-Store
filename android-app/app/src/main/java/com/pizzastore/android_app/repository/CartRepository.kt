@@ -108,8 +108,10 @@ class CartRepository(
         }
     }
 
+    // Hàm siêu quan trọng: Đồng bộ giỏ hàng Local lên Server ngay sau khi khách hàng đăng nhập thành công
     suspend fun syncGuestCartToServer() {
         if (tokenManager.getToken() != null) {
+            // Lấy toàn bộ mảng JSON giỏ hàng lưu trong SharedPreferences
             val guestItems = guestCartManager.getGuestCartItems()
             if (guestItems.isNotEmpty()) {
                 try {
@@ -122,8 +124,10 @@ class CartRepository(
                             note = item.note,
                             unit_price = item.unit_price
                         )
+                        // Gọi API đẩy từng món ăn lên Backend Database
                         apiService.addItemToCart(request)
                     }
+                    // Đồng bộ xong thì xóa sạch giỏ hàng ở Local để tránh trùng lặp
                     guestCartManager.clearCart()
                     refreshCartCount()
                 } catch (e: Exception) {

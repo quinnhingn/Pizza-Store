@@ -77,6 +77,8 @@ const OrdersManagement = () => {
     fetchOrders();
   }, []);
 
+  // Lắng nghe tín hiệu WebSocket (Real-time). Bất cứ khi nào có đơn mới đẩy lên từ Khách hàng,
+  // Backend sẽ bắn 1 event 'new_order'. Giao diện Admin bắt được sẽ tự động gọi API fetch lại danh sách (silent mode = không hiện xoay xoay Loading giật màn hình)
   useEffect(() => {
     if (latestMessage && (
       latestMessage.type === 'new_order' || 
@@ -135,6 +137,7 @@ const OrdersManagement = () => {
     });
   };
 
+  // Hàm này chạy khi Admin bấm xác nhận chuyển trạng thái Kanban (Ví dụ: Từ Chờ xác nhận -> Đang giao hàng)
   const executeStatusUpdate = async () => {
     const { order, targetStatus, reason, customReason } = confirmModal;
     if (!order || !targetStatus) return;
@@ -145,6 +148,7 @@ const OrdersManagement = () => {
         const cancelReason = reason === 'Lý do khác' ? customReason : reason;
         await ordersAPI.cancelOrder(order.id, cancelReason);
       } else {
+        // Gọi API PUT cập nhật Database. Ngay sau khi DB update xong, Backend sẽ tự động bắn WebSocket ngược lại cho App Khách hàng.
         await ordersAPI.updateOrderStatus(order.id, targetStatus);
       }
 

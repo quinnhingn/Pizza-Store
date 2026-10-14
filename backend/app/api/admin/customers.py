@@ -13,11 +13,13 @@ from app.models.order import Order
 router = APIRouter()
 
 def require_admin(user: User = Depends(get_current_user)):
+    """Hàm dependency kiểm tra quyền Admin. Từ chối nếu không phải Admin."""
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Not enough permissions")
     return user
 
 class CustomerResponse(BaseModel):
+    """Schema phản hồi thông tin khách hàng kèm thống kê đơn hàng và hạng thành viên."""
     id: int
     email: EmailStr
     full_name: str
@@ -31,6 +33,10 @@ class CustomerResponse(BaseModel):
         from_attributes = True
 
 def determine_rank(total_spent: float) -> str:
+    """
+    Xác định hạng thành viên dựa trên tổng chi tiêu của khách hàng.
+    Platinum >= 5tr | Gold >= 2tr | Silver >= 1tr | Bronze: còn lại.
+    """
     if total_spent >= 5000000:
         return "Platinum"
     elif total_spent >= 2000000:
@@ -44,6 +50,10 @@ async def get_all_customers(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
+    """
+    Admin only: Lấy danh sách toàn bộ khách hàng kèm thống kê đơn hàng và hạng thành viên.
+    Sử dụng LEFT JOIN để bao gồm cả khách hàng chưa có đơn hoàn thành nào.
+    """
     stmt = (
         select(
             User,
@@ -59,6 +69,7 @@ async def get_all_customers(
     result = await db.execute(stmt)
     rows = result.all()
     
+    # Xây dựng danh sách phản hồi với hạng thành viên được tính toán
     customers = []
     for user, total_orders, total_spent in rows:
         spent = float(total_spent or 0)
@@ -81,6 +92,10 @@ async def toggle_customer_status(
     db: AsyncSession = Depends(get_db),
     admin: User = Depends(require_admin)
 ):
+    """
+    Admin only: Bật/tắt trạng thái hoạt động của tài khoản khách hàng.
+    Tài khoản bị tắt sẽ không thể đăng nhập.
+    """
     result = await db.execute(select(User).where(User.id == user_id, User.role == "customer"))
     user = result.scalars().first()
     if not user:

@@ -11,6 +11,10 @@ router = APIRouter()
 
 @router.get("/", response_model=List[BannerResponse])
 async def get_active_banners(db: AsyncSession = Depends(get_db)):
+    """
+    Lấy danh sách banner đang hoạt động, sắp xếp theo thứ tự hiển thị (Public endpoint).
+    Chỉ trả về banner có is_active = True để hiển thị trên trang chủ.
+    """
     result = await db.execute(
         select(Banner)
         .where(Banner.is_active == True)

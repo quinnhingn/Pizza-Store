@@ -16,24 +16,31 @@ async def get_order_review_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check if order belongs to user
+    """
+    Kiểm tra trạng thái đánh giá của từng sản phẩm trong một đơn hàng.
+    Trả về danh sách sản phẩm cùng thông tin đã đánh giá hay chưa, dùng để hiển thị form review.
+    """
+    # Kiểm tra đơn hàng thuộc về người dùng hiện tại
     result = await db.execute(select(Order).where(Order.id == order_id, Order.user_id == current_user.id))
     order = result.unique().scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
 
-    # Get order items
+    # Lấy danh sách sản phẩm trong đơn hàng
     items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
     order_items = items_result.scalars().all()
+    # Dùng set để loại trùng (một sản phẩm có thể xuất hiện nhiều lần với size/topping khác nhau)
     product_ids = list(set([item.product_id for item in order_items]))
 
-    # Get existing reviews for this order
+    # Lấy các review hiện có của người dùng cho đơn hàng này
     reviews_result = await db.execute(
         select(Review).where(Review.order_id == order_id, Review.user_id == current_user.id)
     )
     existing_reviews = reviews_result.scalars().all()
+    # Tạo map product_id -> review để tra cứu nhanh
     review_map = {r.product_id: r for r in existing_reviews}
 
+    # Xây dựng danh sách trạng thái review cho từng sản phẩm
     status_items = []
     for pid in product_ids:
         r = review_map.get(pid)
@@ -55,19 +62,24 @@ async def submit_order_reviews(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # Check order
+    """
+    Khách hàng gửi đánh giá cho các sản phẩm trong đơn hàng đã hoàn thành.
+    Điều kiện: Đơn phải ở trạng thái 'completed', chưa quá 7 ngày, và sản phẩm phải thuộc đơn hàng đó.
+    """
+    # Kiểm tra đơn hàng tồn tại và thuộc về người dùng hiện tại
     result = await db.execute(select(Order).where(Order.id == order_id, Order.user_id == current_user.id))
     order = result.unique().scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Không tìm thấy đơn hàng")
         
+    # Chỉ cho phép đánh giá đơn hàng đã hoàn thành
     if order.status not in ["completed", "delivered"]:
         raise HTTPException(status_code=400, detail="Chỉ đơn hàng đã hoàn thành mới được đánh giá")
         
-    # Check time limit (7 days)
-    # Note: Using order.updated_at as completion time
+    # Kiểm tra giới hạn thời gian đánh giá: tối đa 7 ngày kể từ khi hoàn thành
+    # Dùng updated_at làm mốc thời gian hoàn thành đơn
     if order.updated_at:
-        # Check if updated_at is naive or aware
+        # Xử lý trường hợp updated_at có hoặc không có timezone info
         if order.updated_at.tzinfo is None:
             updated_at_aware = order.updated_at.replace(tzinfo=timezone.utc)
         else:
@@ -77,23 +89,24 @@ async def submit_order_reviews(
         if (now_aware - updated_at_aware) > timedelta(days=7):
             raise HTTPException(status_code=400, detail="Đã quá 7 ngày kể từ khi hoàn thành đơn hàng, không thể đánh giá")
 
-    # Get valid product_ids from this order
+    # Lấy danh sách product_id hợp lệ từ đơn hàng (chỉ cho phép đánh giá sản phẩm trong đơn)
     items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
     order_items = items_result.scalars().all()
     valid_product_ids = set([item.product_id for item in order_items])
 
-    # Get existing reviews to avoid duplicates
+    # Lấy danh sách sản phẩm đã được đánh giá để tránh tạo review trùng
     reviews_result = await db.execute(
         select(Review).where(Review.order_id == order_id, Review.user_id == current_user.id)
     )
     existing_product_ids = set([r.product_id for r in reviews_result.scalars().all()])
 
+    # Tạo review mới cho từng sản phẩm hợp lệ, bỏ qua sản phẩm không thuộc đơn hoặc đã review
     new_reviews = []
     for item in payload.reviews:
         if item.product_id not in valid_product_ids:
-            continue # Skip invalid products
+            continue  # Bỏ qua sản phẩm không thuộc đơn hàng này
         if item.product_id in existing_product_ids:
-            continue # Already reviewed
+            continue  # Bỏ qua sản phẩm đã được đánh giá trước đó
             
         new_review = Review(
             user_id=current_user.id,
@@ -109,7 +122,7 @@ async def submit_order_reviews(
     if not new_reviews:
         raise HTTPException(status_code=400, detail="Không có đánh giá hợp lệ nào được gửi")
         
-    # Get all admin users to notify
+    # Gửi thông báo đến tất cả Admin về review mới
     from app.models.user import User
     from app.models.user_notification import UserNotification
     from app.api.ws import manager
@@ -129,7 +142,7 @@ async def submit_order_reviews(
         
     await db.commit()
     
-    # Broadcast to admins
+    # Broadcast sự kiện WebSocket báo có review mới cho Admin đang online
     await manager.broadcast_to_admins({
         "type": "new_review",
         "message": f"Có đánh giá mới cho đơn hàng {order.order_code}.",

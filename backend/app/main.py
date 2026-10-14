@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.exc import IntegrityError
 from typing import Dict
 
-# Import routers
+# Nhập tất cả các router từ các module API
 from app.api import auth, users, categories, products, upload, ingredients, catalog_sizes_toppings, public_products, cart, vouchers, orders, notifications, ws, chat
 from app.api.admin import banners as admin_banners
 from app.api.admin import dashboard as admin_dashboard
@@ -16,7 +16,7 @@ from app.api.public import banners as public_banners
 from app.api.public import reviews as public_reviews
 from app.api.customer import reviews as customer_reviews
 
-# Ensure static/uploads directory exists for fallback images
+# Đảm bảo thư mục lưu ảnh tĩnh tồn tại (dùng làm fallback khi Cloudinary lỗi)
 os.makedirs("static/uploads", exist_ok=True)
 
 app = FastAPI(
@@ -25,6 +25,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
+# Cấu hình CORS: cho phép frontend truy cập từ localhost
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:3000", "http://127.0.0.1:3000"],
@@ -33,6 +34,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Xử lý lỗi vi phạm ràng buộc toàn vẹn dữ liệu (ví dụ: xóa sản phẩm đang có trong đơn hàng)
 @app.exception_handler(IntegrityError)
 async def integrity_error_handler(request: Request, exc: IntegrityError):
     return JSONResponse(
@@ -40,6 +42,7 @@ async def integrity_error_handler(request: Request, exc: IntegrityError):
         content={"detail": "Thao tác không thể thực hiện do ràng buộc dữ liệu toàn vẹn (ví dụ: sản phẩm đang nằm trong lịch sử đơn hàng hoặc giỏ hàng)."}
     )
 
+# Xử lý toàn bộ lỗi bất ngờ chưa được bắt (global error handler)
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     return JSONResponse(
@@ -47,10 +50,10 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={"detail": f"Lỗi hệ thống nội bộ: {str(exc)}"}
     )
 
-# Mount static files for local fallback storage
+# Mount thư mục static để phục vụ ảnh lưu cục bộ (fallback)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Register API Routers
+# Đăng ký các Router theo nhóm chức năng
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(users.router, prefix="/api/users", tags=["Users & Addresses"])
 app.include_router(categories.router, prefix="/api/categories", tags=["Categories"])
@@ -75,6 +78,7 @@ app.include_router(customer_reviews.router, prefix="/api/customer", tags=["Custo
 app.include_router(public_banners.router, prefix="/api/banners/public", tags=["Public - Banners"])
 
 
+# Endpoint kiểm tra server còn hoạt động hay không
 @app.get("/api/ping", tags=["Health Check"])
 async def ping_server() -> Dict[str, str]:
     return {

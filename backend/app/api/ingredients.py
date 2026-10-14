@@ -13,7 +13,7 @@ router = APIRouter()
 
 @router.get("", response_model=List[IngredientResponse])
 async def get_ingredients(db: AsyncSession = Depends(get_db)):
-    """Get all master ingredients (sorted alphabetically by name)."""
+    """Lấy toàn bộ nguyên liệu gốc trong từ điển, sắp xếp theo tên A-Z."""
     stmt = select(Ingredient).order_by(Ingredient.name.asc())
     result = await db.execute(stmt)
     ingredients = result.scalars().all()
@@ -21,7 +21,7 @@ async def get_ingredients(db: AsyncSession = Depends(get_db)):
 
 @router.get("/{ingredient_id}", response_model=IngredientResponse)
 async def get_ingredient(ingredient_id: int, db: AsyncSession = Depends(get_db)):
-    """Get single master ingredient by ID."""
+    """Lấy thông tin một nguyên liệu theo ID."""
     stmt = select(Ingredient).where(Ingredient.id == ingredient_id)
     result = await db.execute(stmt)
     ingredient = result.scalar_one_or_none()
@@ -35,12 +35,12 @@ async def create_ingredient(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Create a new master ingredient (Admin only)."""
+    """Tạo nguyên liệu mới trong từ điển gốc (chỉ Admin). Kiểm tra trùng lặp không phân biệt hoa/thường."""
     clean_name = payload.name.strip()
     if not clean_name:
         raise HTTPException(status_code=400, detail="Tên nguyên liệu không được để trống")
 
-    # Check case-insensitive duplicate
+    # Kiểm tra trùng lặp không phân biệt hoa/thường (case-insensitive)
     stmt = select(Ingredient).where(func.lower(Ingredient.name) == func.lower(clean_name))
     result = await db.execute(stmt)
     existing = result.scalar_one_or_none()
@@ -60,7 +60,7 @@ async def update_ingredient(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Update a master ingredient name (Admin only)."""
+    """Cập nhật tên nguyên liệu trong từ điển gốc (chỉ Admin). Kiểm tra tên mới không trùng."""
     stmt = select(Ingredient).where(Ingredient.id == ingredient_id)
     result = await db.execute(stmt)
     ingredient = result.scalar_one_or_none()
@@ -73,7 +73,7 @@ async def update_ingredient(
             raise HTTPException(status_code=400, detail="Tên nguyên liệu không được để trống")
         
         if func.lower(clean_name) != func.lower(ingredient.name):
-            # Check duplicate
+            # Kiểm tra tên mới có trùng với nguyên liệu khác không
             stmt_check = select(Ingredient).where(func.lower(Ingredient.name) == func.lower(clean_name))
             res_check = await db.execute(stmt_check)
             if res_check.scalar_one_or_none():
@@ -91,7 +91,7 @@ async def delete_ingredient(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Delete a master ingredient (Admin only)."""
+    """Xóa nguyên liệu khỏi từ điển gốc (chỉ Admin)."""
     stmt = select(Ingredient).where(Ingredient.id == ingredient_id)
     result = await db.execute(stmt)
     ingredient = result.scalar_one_or_none()

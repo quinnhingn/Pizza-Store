@@ -18,3 +18,7 @@ build/
 
 # Antigravity agents configuration
 .agents/
+
+# PyInstaller build outputs
+dist/
+*.spec

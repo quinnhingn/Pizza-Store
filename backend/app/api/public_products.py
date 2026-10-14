@@ -16,22 +16,23 @@ router = APIRouter()
 
 @router.get("", response_model=PaginatedProductResponse)
 async def get_public_products(
-    category_id: Optional[int] = Query(None, description="Filter by category ID"),
-    is_available: Optional[bool] = Query(None, description="Filter by availability status"),
-    min_price: Optional[Decimal] = Query(None, ge=0, description="Minimum price filter"),
-    max_price: Optional[Decimal] = Query(None, ge=0, description="Maximum price filter"),
-    search: Optional[str] = Query(None, description="Search keyword in product name or ingredient name"),
-    page: int = Query(1, ge=1, description="Page number (1-indexed)"),
-    page_size: int = Query(12, ge=1, le=100, description="Number of items per page"),
+    category_id: Optional[int] = Query(None, description="Lọc theo ID danh mục"),
+    is_available: Optional[bool] = Query(None, description="Lọc theo trạng thái kinh doanh"),
+    min_price: Optional[Decimal] = Query(None, ge=0, description="Giá tối thiểu"),
+    max_price: Optional[Decimal] = Query(None, ge=0, description="Giá tối đa"),
+    search: Optional[str] = Query(None, description="Tìm kiếm theo tên sản phẩm hoặc tên nguyên liệu"),
+    page: int = Query(1, ge=1, description="Trang hiện tại (bắt đầu từ 1)"),
+    page_size: int = Query(12, ge=1, le=100, description="Số sản phẩm mỗi trang"),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get paginated list of products with filtering and search (Public Customer endpoint).
-    Returns both available and unavailable items by default so customer UI can display 'Hết món' tag.
-    Eagerly loads sizes, toppings, and ingredients for client-side pricing computation.
+    Lấy danh sách sản phẩm phân trang có hỗ trợ lọc và tìm kiếm (Public - dành cho khách hàng).
+    Trả về cả sản phẩm đang bán và tạm ngưng để giao diện có thể hiển thị tag 'Hết món'.
+    Tải sẵn (eager load) sizes, toppings, và nguyên liệu để client tính giá phía client.
     """
     base_filters = []
 
+    # Xây dựng danh sách điều kiện lọc từ các tham số query
     if is_available is not None:
         base_filters.append(Product.is_available == is_available)
     if category_id is not None:
@@ -41,6 +42,7 @@ async def get_public_products(
     if max_price is not None:
         base_filters.append(Product.price <= max_price)
     if search and search.strip():
+        # Tìm kiếm theo tên sản phẩm HOẶC tên nguyên liệu (không phân biệt hoa thường)
         search_term = f"%{search.strip().lower()}%"
         base_filters.append(
             or_(
@@ -51,15 +53,16 @@ async def get_public_products(
             )
         )
 
-    # Calculate total count
+    # Đếm tổng số sản phẩm khớp với điều kiện lọc
     count_stmt = select(func.count()).select_from(Product).where(and_(*base_filters)) if base_filters else select(func.count()).select_from(Product)
     total_res = await db.execute(count_stmt)
     total_count = total_res.scalar() or 0
 
+    # Tính tổng số trang và offset
     total_pages = (total_count + page_size - 1) // page_size if total_count > 0 else 1
     offset = (page - 1) * page_size
 
-    # Fetch paginated items with eager loading
+    # Lấy danh sách sản phẩm theo trang, eager load các quan hệ liên quan
     stmt = (
         select(Product)
         .options(
@@ -74,6 +77,7 @@ async def get_public_products(
     result = await db.execute(stmt)
     items = result.scalars().all()
 
+    # Tính toán điểm đánh giá trung bình và tổng số review cho từng sản phẩm
     if items:
         product_ids = [p.id for p in items]
         review_query = select(
@@ -83,13 +87,14 @@ async def get_public_products(
         ).where(
             and_(
                 Review.product_id.in_(product_ids),
-                Review.is_visible == True
+                Review.is_visible == True  # Chỉ tính review đã được duyệt hiển thị
             )
         ).group_by(Review.product_id)
         
         review_res = await db.execute(review_query)
         review_stats = {r.product_id: r for r in review_res.all()}
 
+        # Gắn thông tin review vào từng sản phẩm
         for p in items:
             stats = review_stats.get(p.id)
             p.average_rating = float(stats.avg) if stats and stats.avg else 0.0
@@ -112,9 +117,10 @@ async def get_public_product(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Get single product details by ID (Public Customer endpoint).
-    Returns product details regardless of availability status so UI can display status properly.
+    Lấy thông tin chi tiết của một sản phẩm theo ID (Public - dành cho khách hàng).
+    Trả về bất kể trạng thái kinh doanh để giao diện hiển thị đúng trạng thái.
     """
+    # Xóa cache session để đảm bảo lấy dữ liệu mới nhất từ DB
     db.expire_all()
     stmt = (
         select(Product)
@@ -130,13 +136,14 @@ async def get_public_product(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    # Tính điểm đánh giá trung bình và tổng số review cho sản phẩm này
     review_query = select(
         func.count(Review.id).label('total'),
         func.avg(Review.rating).label('avg')
     ).where(
         and_(
             Review.product_id == product_id,
-            Review.is_visible == True
+            Review.is_visible == True  # Chỉ tính review đã được duyệt
         )
     )
     review_res = await db.execute(review_query)

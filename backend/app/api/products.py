@@ -16,31 +16,38 @@ from app.schemas.product import ProductCreate, ProductUpdate, ProductResponse
 router = APIRouter()
 
 async def _sync_product_ingredients(db: AsyncSession, product_id: int, ingredients_list: List[str]):
-    """Helper to sync product ingredients with the ingredients and product_ingredients tables."""
-    # Delete existing associations for this product
+    """
+    Đồng bộ hóa danh sách nguyên liệu cho sản phẩm.
+    Xóa toàn bộ liên kết cũ rồi tạo lại từ danh sách mới.
+    Tự động tạo Ingredient mới vào bảng master nếu chưa tồn tại.
+    """
+    # Xóa toàn bộ liên kết nguyên liệu hiện tại của sản phẩm
     await db.execute(delete(ProductIngredient).where(ProductIngredient.product_id == product_id))
     
     seen_names = set()
     for raw_name in ingredients_list:
         name = raw_name.strip()
         if not name or name.lower() in seen_names:
-            continue
+            continue  # Bỏ qua tên rỗng hoặc trùng lặp
         seen_names.add(name.lower())
 
-        # Check if ingredient exists
+        # Tìm nguyên liệu trong bảng master, nếu chưa có thì tạo mới
         stmt = select(Ingredient).where(Ingredient.name == name)
         res = await db.execute(stmt)
         ing = res.scalar_one_or_none()
         if not ing:
             ing = Ingredient(name=name)
             db.add(ing)
-            await db.flush()
+            await db.flush()  # Flush để lấy ing.id trước khi tạo liên kết
             
         assoc = ProductIngredient(product_id=product_id, ingredient_id=ing.id)
         db.add(assoc)
 
 async def _sync_product_sizes(db: AsyncSession, product_id: int, sizes_list: list):
-    """Helper to sync product sizes."""
+    """
+    Đồng bộ hóa danh sách kích thước (size) cho sản phẩm.
+    Xóa toàn bộ size cũ rồi tạo lại từ danh sách mới.
+    """
     await db.execute(delete(ProductSize).where(ProductSize.product_id == product_id))
     for sz in sizes_list:
         assoc = ProductSize(
@@ -52,7 +59,10 @@ async def _sync_product_sizes(db: AsyncSession, product_id: int, sizes_list: lis
         db.add(assoc)
 
 async def _sync_product_toppings(db: AsyncSession, product_id: int, toppings_list: list):
-    """Helper to sync product toppings."""
+    """
+    Đồng bộ hóa danh sách topping cho sản phẩm.
+    Xóa toàn bộ topping cũ rồi tạo lại từ danh sách mới.
+    """
     await db.execute(delete(ProductTopping).where(ProductTopping.product_id == product_id))
     for tp in toppings_list:
         assoc = ProductTopping(
@@ -63,7 +73,10 @@ async def _sync_product_toppings(db: AsyncSession, product_id: int, toppings_lis
         db.add(assoc)
 
 async def _get_product_with_details(db: AsyncSession, product_id: int) -> Optional[Product]:
-    """Fetch product with eager loaded ingredient, size, and topping associations."""
+    """
+    Lấy thông tin sản phẩm kèm theo toàn bộ quan hệ liên kết (nguyên liệu, size, topping).
+    Xóa cache session trước để đảm bảo dữ liệu luôn mới nhất.
+    """
     db.expire_all()
     stmt = (
         select(Product)
@@ -79,13 +92,13 @@ async def _get_product_with_details(db: AsyncSession, product_id: int) -> Option
 
 @router.get("", response_model=List[ProductResponse])
 async def get_products(
-    category_id: Optional[int] = Query(None, description="Filter by category ID"),
-    is_available: Optional[bool] = Query(None, description="Filter by availability status"),
+    category_id: Optional[int] = Query(None, description="Lọc theo ID danh mục"),
+    is_available: Optional[bool] = Query(None, description="Lọc theo trạng thái kinh doanh"),
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=200),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get list of products with optional filtering (Public endpoint)."""
+    """Lấy danh sách sản phẩm với tùy chọn lọc theo danh mục và trạng thái (Public endpoint)."""
     stmt = (
         select(Product)
         .options(
@@ -106,7 +119,7 @@ async def get_products(
 
 @router.get("/{product_id}", response_model=ProductResponse)
 async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    """Get single product by ID (Public endpoint)."""
+    """Lấy thông tin chi tiết một sản phẩm theo ID (Public endpoint)."""
     product = await _get_product_with_details(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -118,19 +131,21 @@ async def create_product(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Create a new product (Admin only)."""
-    # Check if category exists if provided
+    """Tạo sản phẩm mới (chỉ Admin). Tự động tạo và liên kết nguyên liệu, size, topping."""
+    # Kiểm tra danh mục tồn tại nếu được cung cấp
     if payload.category_id is not None:
         stmt_cat = select(Category).where(Category.id == payload.category_id)
         res_cat = await db.execute(stmt_cat)
         if not res_cat.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Category ID does not exist")
 
+    # Tạo sản phẩm chính (loại trừ các trường danh sách xử lý riêng)
     product_data = payload.model_dump(exclude={"ingredients", "sizes", "toppings"})
     new_product = Product(**product_data)
     db.add(new_product)
-    await db.flush()  # flush to get new_product.id
+    await db.flush()  # Flush để lấy new_product.id trước khi tạo liên kết
 
+    # Đồng bộ hóa nguyên liệu, size, topping nếu được cung cấp
     if payload.ingredients:
         await _sync_product_ingredients(db, new_product.id, payload.ingredients)
     if payload.sizes:
@@ -148,21 +163,24 @@ async def update_product(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Update an existing product (Admin only)."""
+    """Cập nhật thông tin sản phẩm hiện có (chỉ Admin)."""
     product = await _get_product_with_details(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
+    # Kiểm tra danh mục mới có tồn tại không (nếu được thay đổi)
     if payload.category_id is not None and payload.category_id != product.category_id:
         stmt_cat = select(Category).where(Category.id == payload.category_id)
         res_cat = await db.execute(stmt_cat)
         if not res_cat.scalar_one_or_none():
             raise HTTPException(status_code=400, detail="Category ID does not exist")
 
+    # Cập nhật các trường cơ bản (không bao gồm danh sách xử lý riêng)
     update_data = payload.model_dump(exclude_unset=True, exclude={"ingredients", "sizes", "toppings"})
     for key, value in update_data.items():
         setattr(product, key, value)
 
+    # Đồng bộ hóa lại nguyên liệu, size, topping nếu được cung cấp trong payload
     if payload.ingredients is not None:
         await _sync_product_ingredients(db, product.id, payload.ingredients)
     if payload.sizes is not None:
@@ -179,7 +197,7 @@ async def delete_product(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Delete a product (Admin only)."""
+    """Xóa sản phẩm (chỉ Admin). Không thể xóa nếu sản phẩm đã có trong lịch sử đơn hàng."""
     product = await _get_product_with_details(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -196,6 +214,7 @@ async def delete_product(
         await db.delete(product)
         await db.commit()
     except IntegrityError:
+        # Xử lý trường hợp còn ràng buộc dữ liệu (ví dụ: giỏ hàng)
         await db.rollback()
         raise HTTPException(
             status_code=400,

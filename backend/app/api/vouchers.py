@@ -32,8 +32,8 @@ async def validate_voucher(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Validate voucher code against current order value and return exact discount amount.
-    Enforces one-time usage per user.
+    Kiểm tra tính hợp lệ của mã giảm giá với giá trị đơn hàng hiện tại và trả về số tiền được giảm.
+    Áp dụng ràng buộc mỗi mã chỉ dùng 1 lần trên 1 khách hàng.
     """
     code_clean = payload.code.strip().upper()
     stmt = select(Voucher).where(Voucher.code == code_clean)
@@ -48,7 +48,7 @@ async def validate_voucher(
             message="Mã giảm giá không tồn tại."
         )
 
-    # Check if user already used this voucher
+    # Kiểm tra khách hàng đã dùng mã này trong đơn hàng nào chưa
     chk_used = await db.execute(
         select(Order).where(
             Order.user_id == current_user.id,
@@ -71,6 +71,7 @@ async def validate_voucher(
             message="Mã giảm giá hiện không còn hoạt động."
         )
 
+    # Kiểm tra thời hạn sử dụng theo múi giờ Việt Nam (UTC+7)
     VN_TZ = timezone(timedelta(hours=7))
     now = datetime.now(VN_TZ).replace(tzinfo=None)
     if now < voucher.start_date or now > voucher.end_date:
@@ -81,6 +82,7 @@ async def validate_voucher(
             message="Mã giảm giá chưa đến hạn hoặc đã hết hạn sử dụng."
         )
 
+    # Kiểm tra số lượt sử dụng còn lại
     if voucher.usage_limit is not None and voucher.used_count >= voucher.usage_limit:
         return VoucherValidateResponse(
             valid=False,
@@ -89,6 +91,7 @@ async def validate_voucher(
             message="Mã giảm giá đã hết lượt sử dụng."
         )
 
+    # Kiểm tra giá trị đơn hàng tối thiểu
     order_val_dec = Decimal(str(payload.order_value))
     if voucher.min_order_value is not None:
         min_val_dec = Decimal(str(voucher.min_order_value))
@@ -101,18 +104,20 @@ async def validate_voucher(
                 message=f"Đơn hàng cần đạt tối thiểu {formatted_min}đ để áp dụng mã này."
             )
 
-    # Calculate discount
+    # Tính toán số tiền được giảm (theo phần trăm hoặc số tiền cố định)
     discount = Decimal("0.00")
     if voucher.discount_percent is not None and voucher.discount_percent > 0:
         discount = (order_val_dec * Decimal(str(voucher.discount_percent))) / Decimal("100")
     elif voucher.discount_amount is not None and voucher.discount_amount > 0:
         discount = Decimal(str(voucher.discount_amount))
 
+    # Áp dụng giới hạn giảm tối đa nếu có
     if voucher.max_discount is not None and voucher.max_discount > 0:
         max_disc_dec = Decimal(str(voucher.max_discount))
         if discount > max_disc_dec:
             discount = max_disc_dec
 
+    # Đảm bảo số giảm không vượt giá trị đơn hàng
     if discount > order_val_dec:
         discount = order_val_dec
 
@@ -127,7 +132,7 @@ async def validate_voucher(
 @router.get("", response_model=List[VoucherResponse])
 async def get_active_vouchers(db: AsyncSession = Depends(get_db)):
     """
-    Get all active vouchers for user or general display.
+    Lấy tất cả voucher đang hoạt động để hiển thị cho người dùng hoặc khách vãng lai.
     """
     stmt = select(Voucher).where(Voucher.is_active == True).order_by(Voucher.id.asc())
     result = await db.execute(stmt)
@@ -140,7 +145,7 @@ async def get_all_vouchers_admin(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Get all vouchers including inactive and expired.
+    Chỉ Admin: Lấy toàn bộ voucher kể cả đã hết hạn và không hoạt động.
     """
     stmt = select(Voucher).order_by(Voucher.id.desc())
     result = await db.execute(stmt)
@@ -153,7 +158,7 @@ async def create_voucher(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Create a new voucher.
+    Chỉ Admin: Tạo mã voucher mới. Kiểm tra mã không trùng lặp (case-insensitive).
     """
     code_clean = payload.code.strip().upper()
     stmt = select(Voucher).where(Voucher.code == code_clean)
@@ -166,6 +171,7 @@ async def create_voucher(
 
     voucher_data = payload.model_dump()
     voucher_data["code"] = code_clean
+    # Loại bỏ timezone info để lưu dạng naive datetime vào DB
     if voucher_data.get("start_date") and getattr(voucher_data["start_date"], "tzinfo", None) is not None:
         voucher_data["start_date"] = voucher_data["start_date"].replace(tzinfo=None)
     if voucher_data.get("end_date") and getattr(voucher_data["end_date"], "tzinfo", None) is not None:
@@ -191,7 +197,7 @@ async def update_voucher(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Update voucher details.
+    Chỉ Admin: Cập nhật thông tin chi tiết voucher.
     """
     stmt = select(Voucher).where(Voucher.id == id)
     result = await db.execute(stmt)
@@ -203,12 +209,13 @@ async def update_voucher(
     if "code" in update_data and update_data["code"]:
         code_clean = update_data["code"].strip().upper()
         if code_clean != voucher.code:
-            # Check unique
+            # Kiểm tra mã mới không trùng với voucher khác
             chk = await db.execute(select(Voucher).where(Voucher.code == code_clean))
             if chk.scalar_one_or_none():
                 raise HTTPException(status_code=400, detail="Mã voucher mới đã tồn tại.")
         update_data["code"] = code_clean
 
+    # Chuẩn hóa datetime về naive để lưu DB nhất quán
     if "start_date" in update_data and update_data["start_date"] and getattr(update_data["start_date"], "tzinfo", None) is not None:
         update_data["start_date"] = update_data["start_date"].replace(tzinfo=None)
     if "end_date" in update_data and update_data["end_date"] and getattr(update_data["end_date"], "tzinfo", None) is not None:
@@ -235,7 +242,7 @@ async def toggle_voucher_status(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Toggle voucher is_active status.
+    Chỉ Admin: Bật/tắt trạng thái hoạt động của voucher (toggle is_active).
     """
     stmt = select(Voucher).where(Voucher.id == id)
     result = await db.execute(stmt)
@@ -255,7 +262,9 @@ async def delete_voucher(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Delete voucher. If used in orders or saved, soft-delete by deactivating.
+    Chỉ Admin: Xóa voucher.
+    Nếu voucher đã được dùng trong đơn hàng hoặc được lưu trong ví khách, 
+    thực hiện Soft Delete (chuyển sang ngưng hoạt động) để bảo toàn tính toàn vẹn dữ liệu.
     """
     stmt = select(Voucher).where(Voucher.id == id)
     result = await db.execute(stmt)
@@ -263,15 +272,17 @@ async def delete_voucher(
     if not voucher:
         raise HTTPException(status_code=404, detail="Không tìm thấy voucher.")
 
-    # Check if used in orders or user_vouchers
+    # Kiểm tra xem voucher có liên kết với đơn hàng hoặc ví khách hàng không
     chk_order = await db.execute(select(Order).where(Order.voucher_code == voucher.code))
     chk_saved = await db.execute(select(UserVoucher).where(UserVoucher.voucher_code == voucher.code))
     
     if chk_order.scalar_one_or_none() or chk_saved.scalar_one_or_none():
+        # Soft Delete: chỉ vô hiệu hóa thay vì xóa hoàn toàn
         voucher.is_active = False
         await db.commit()
         return {"message": f"Mã {voucher.code} đã từng được áp dụng hoặc lưu trong ví khách hàng, hệ thống đã chuyển sang trạng thái ngưng hoạt động (Soft Delete) để bảo toàn dữ liệu."}
 
+    # Hard Delete: xóa hoàn toàn nếu chưa được dùng
     await db.delete(voucher)
     await db.commit()
     return {"message": f"Đã xóa hoàn toàn mã voucher {voucher.code}."}
@@ -284,7 +295,7 @@ async def gift_voucher(
     admin: User = Depends(get_current_admin_user)
 ):
     """
-    Admin only: Gift a voucher to specific users or all active customers via notifications.
+    Chỉ Admin: Tặng voucher cho khách hàng cụ thể hoặc toàn bộ khách hàng đang hoạt động qua thông báo.
     """
     stmt = select(Voucher).where(Voucher.id == id)
     result = await db.execute(stmt)
@@ -292,6 +303,7 @@ async def gift_voucher(
     if not voucher:
         raise HTTPException(status_code=404, detail="Không tìm thấy voucher.")
 
+    # Xác định danh sách khách hàng nhận quà
     if payload.send_to_all:
         users_stmt = select(User).where(User.is_active == True, User.role == "customer")
         users_result = await db.execute(users_stmt)
@@ -309,6 +321,7 @@ async def gift_voucher(
     title = "Quà tặng ưu đãi từ Pizza Store!"
     message = payload.custom_message or f"Pizza Store gửi tặng bạn mã giảm giá đặc biệt {voucher.code}. Nhấn nút Lưu ngay bên dưới để sử dụng cho đơn hàng tiếp theo nhé!"
 
+    # Tạo thông báo cho từng khách hàng
     notifications = []
     for u in target_users:
         notif = UserNotification(
@@ -332,7 +345,7 @@ async def save_voucher_to_wallet(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Customer only: Save a gifted or public voucher code to personal wallet.
+    Chỉ Khách hàng: Lưu mã voucher được tặng hoặc mã công khai vào kho cá nhân.
     """
     code_clean = payload.code.strip().upper()
     stmt = select(Voucher).where(Voucher.code == code_clean)
@@ -341,12 +354,12 @@ async def save_voucher_to_wallet(
     if not voucher or not voucher.is_active:
         raise HTTPException(status_code=400, detail="Mã giảm giá không tồn tại hoặc đã ngưng hoạt động.")
 
-    # Check if already saved
+    # Kiểm tra mã đã được lưu trong ví chưa
     chk = await db.execute(
         select(UserVoucher).where(UserVoucher.user_id == current_user.id, UserVoucher.voucher_code == code_clean)
     )
     if chk.scalar_one_or_none():
-        # If notification_id provided, mark read as well
+        # Nếu đã lưu, vẫn đánh dấu thông báo là đã đọc nếu có
         if payload.notification_id:
             notif = await db.get(UserNotification, payload.notification_id)
             if notif and notif.user_id == current_user.id:
@@ -354,6 +367,7 @@ async def save_voucher_to_wallet(
                 await db.commit()
         raise HTTPException(status_code=400, detail="Bạn đã lưu mã ưu đãi này trong ví rồi.")
 
+    # Lưu mã vào ví cá nhân
     new_saved = UserVoucher(
         user_id=current_user.id,
         voucher_code=code_clean,
@@ -361,6 +375,7 @@ async def save_voucher_to_wallet(
     )
     db.add(new_saved)
 
+    # Đánh dấu thông báo liên quan là đã đọc (nếu có)
     if payload.notification_id:
         notif = await db.get(UserNotification, payload.notification_id)
         if notif and notif.user_id == current_user.id:
@@ -371,14 +386,14 @@ async def save_voucher_to_wallet(
 
 @router.get("/my-saved-vouchers", response_model=List[UserVoucherResponse])
 async def get_my_saved_vouchers(
-    tab: str = Query("active", description="active or history"),
+    tab: str = Query("active", description="active hoặc history"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
-    Customer only: Get saved vouchers in personal wallet.
-    Tab active: unused and valid vouchers.
-    Tab history: used or expired vouchers.
+    Chỉ Khách hàng: Lấy danh sách voucher đã lưu trong ví cá nhân.
+    Tab 'active': voucher chưa dùng và còn hạn.
+    Tab 'history': voucher đã dùng hoặc hết hạn.
     """
     stmt = select(UserVoucher).where(
         UserVoucher.user_id == current_user.id
@@ -392,17 +407,18 @@ async def get_my_saved_vouchers(
     VN_TZ = timezone(timedelta(hours=7))
     now_dt = datetime.now(VN_TZ).replace(tzinfo=None)
 
+    # Phân loại từng voucher vào active hoặc history
     for item in saved_list:
         v_stmt = select(Voucher).where(Voucher.code == item.voucher_code)
         v_res = await db.execute(v_stmt)
         v_obj = v_res.scalar_one_or_none()
         
         if not v_obj:
-            continue
+            continue  # Bỏ qua nếu voucher gốc đã bị xóa
             
         item.voucher_details = VoucherResponse.model_validate(v_obj)
         
-        # Check if it's expired or used or inactive
+        # Kiểm tra xem voucher đã hết hạn chưa
         is_expired = v_obj.end_date < now_dt if v_obj.end_date else False
         
         if item.is_used or is_expired or not v_obj.is_active:

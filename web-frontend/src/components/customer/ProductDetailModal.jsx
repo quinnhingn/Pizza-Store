@@ -23,11 +23,9 @@ const ProductDetailModal = ({ product, isOpen, onClose, onAddToCart, initialCart
     if (product && isOpen) {
       const sizesList = Array.isArray(product.sizes) ? product.sizes : [];
       if (initialCartItem) {
-        // Pre-select size matching initialCartItem.size_name
         const foundSize = sizesList.find(s => (s.size_name || "").trim().toLowerCase() === (initialCartItem.size_name || "").trim().toLowerCase()) || sizesList[0] || null;
         setSelectedSize(foundSize);
 
-        // Pre-select toppings matching initialCartItem.toppings
         const initTops = Array.isArray(initialCartItem.toppings) ? initialCartItem.toppings : [];
         const prodToppings = Array.isArray(product.toppings) ? product.toppings : [];
         const matchedToppings = prodToppings.filter(t => 

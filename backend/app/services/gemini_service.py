@@ -7,19 +7,50 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Đọc API key của Gemini từ biến môi trường và khởi tạo client
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 if GEMINI_API_KEY:
     genai.configure(api_key=GEMINI_API_KEY)
 
 class ChatIntent(BaseModel):
+    """Schema cấu trúc phản hồi JSON từ Gemini AI."""
     reply_message: str
-    max_price: Optional[int]
-    min_price: Optional[int]
-    excluded_ingredients: Optional[List[str]]
-    included_ingredients: Optional[List[str]]
-    category_keyword: Optional[str]
-    suggested_queries: Optional[List[str]]
+    max_price: Optional[int] = None
+    min_price: Optional[int] = None
+    excluded_ingredients: Optional[List[str]] = None
+    included_ingredients: Optional[List[str]] = None
+    category_keyword: Optional[str] = None
+    suggested_queries: Optional[List[str]] = None
 
+# Schema dạng dict thuần (không dùng Pydantic class) để tránh lỗi "Unknown field: default"
+# với google-generativeai SDK phiên bản cũ không hỗ trợ field "default" trong JSON Schema
+CHAT_INTENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "reply_message": {"type": "string"},
+        "max_price": {"type": "integer", "nullable": True},
+        "min_price": {"type": "integer", "nullable": True},
+        "excluded_ingredients": {
+            "type": "array",
+            "items": {"type": "string"},
+            "nullable": True
+        },
+        "included_ingredients": {
+            "type": "array",
+            "items": {"type": "string"},
+            "nullable": True
+        },
+        "category_keyword": {"type": "string", "nullable": True},
+        "suggested_queries": {
+            "type": "array",
+            "items": {"type": "string"},
+            "nullable": True
+        }
+    },
+    "required": ["reply_message"]
+}
+
+# System prompt định hướng hành vi của chatbot AI
 SYSTEM_PROMPT = """
 Bạn là một trợ lý ảo thân thiện, nhiệt tình và chuyên nghiệp của cửa hàng Pizza Store.
 Nhiệm vụ của bạn là tư vấn cho khách hàng về các món ăn dựa trên câu hỏi của họ.
@@ -54,6 +85,10 @@ QUAN TRỌNG:
 """
 
 def get_chat_intent_sync(user_message: str, history: list = None) -> dict:
+    """
+    Gọi Gemini AI để phân tích ý định (intent) của người dùng (phiên bản đồng bộ).
+    Dùng trong các context không hỗ trợ async.
+    """
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is not configured in .env")
 
@@ -62,12 +97,13 @@ def get_chat_intent_sync(user_message: str, history: list = None) -> dict:
         system_instruction=SYSTEM_PROMPT,
     )
     
+    # Cấu hình bắt buộc trả về JSON theo schema ChatIntent
     generation_config = genai.GenerationConfig(
         response_mime_type="application/json",
-        response_schema=ChatIntent,
+        response_schema=CHAT_INTENT_SCHEMA,
     )
     
-    # Build context from conversation history (simple & robust approach)
+    # Xây dựng ngữ cảnh từ lịch sử hội thoại để AI hiểu context
     full_prompt = user_message
     if history:
         context_lines = ["[Lịch sử hội thoại gần đây để tham khảo ngữ cảnh]"]
@@ -89,6 +125,10 @@ def get_chat_intent_sync(user_message: str, history: list = None) -> dict:
     return json.loads(response.text)
 
 async def get_chat_intent(user_message: str, history: list = None) -> dict:
+    """
+    Gọi Gemini AI để phân tích ý định (intent) của người dùng (phiên bản bất đồng bộ).
+    Dùng trong các API endpoint async của FastAPI.
+    """
     if not GEMINI_API_KEY:
         raise ValueError("GEMINI_API_KEY is not configured in .env")
 
@@ -97,12 +137,14 @@ async def get_chat_intent(user_message: str, history: list = None) -> dict:
         system_instruction=SYSTEM_PROMPT,
     )
     
+    # Cấu hình bắt buộc trả về JSON theo schema ChatIntent
     generation_config = genai.GenerationConfig(
         response_mime_type="application/json",
-        response_schema=ChatIntent,
+        response_schema=CHAT_INTENT_SCHEMA,
     )
     
-    # Build context from conversation history (simple & robust approach)
+    
+    # Xây dựng ngữ cảnh từ lịch sử hội thoại để AI hiểu context
     full_prompt = user_message
     if history:
         context_lines = ["[Lịch sử hội thoại gần đây để tham khảo ngữ cảnh]"]
@@ -116,6 +158,7 @@ async def get_chat_intent(user_message: str, history: list = None) -> dict:
         context_lines.append(f"Khách: {user_message}")
         full_prompt = "\n".join(context_lines)
     
+    # Gọi API Gemini dạng async để không block event loop
     response = await model.generate_content_async(
         full_prompt,
         generation_config=generation_config,

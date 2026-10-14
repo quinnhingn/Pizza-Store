@@ -16,12 +16,12 @@ router_sizes = APIRouter(tags=["Master Catalog - Sizes"])
 router_toppings = APIRouter(tags=["Master Catalog - Toppings"])
 
 # ==========================================
-# MASTER SIZES ENDPOINTS
+# CÁC ENDPOINT QUẢN LÝ SIZE (KÍCH THƯỚC)
 # ==========================================
 
 @router_sizes.get("", response_model=List[SizeResponse])
 async def get_sizes(db: AsyncSession = Depends(get_db)):
-    """Get all master sizes."""
+    """Lấy toàn bộ danh sách kích thước gốc, sắp xếp theo tên A-Z."""
     result = await db.execute(select(Size).order_by(Size.name.asc()))
     return result.scalars().all()
 
@@ -32,7 +32,7 @@ async def create_size(
     db: AsyncSession = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user)
 ):
-    """Create a new master size template."""
+    """Tạo kích thước mới trong từ điển gốc (chỉ Admin). Kiểm tra tên không trùng lặp."""
     result = await db.execute(select(Size).where(func_lower(Size.name) == size_in.name.lower()))
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Size with this name already exists in master catalog")
@@ -55,12 +55,13 @@ async def update_size(
     db: AsyncSession = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user)
 ):
-    """Update master size."""
+    """Cập nhật kích thước gốc (chỉ Admin). Kiểm tra tên mới không trùng với size khác."""
     result = await db.execute(select(Size).where(Size.id == size_id))
     size = result.scalars().first()
     if not size:
         raise HTTPException(status_code=404, detail="Size not found")
 
+    # Kiểm tra tên mới không trùng với size đã tồn tại (nếu thay đổi tên)
     if size_in.name is not None and size_in.name != size.name:
         existing = await db.execute(select(Size).where(func_lower(Size.name) == size_in.name.lower()))
         if existing.scalars().first():
@@ -83,7 +84,7 @@ async def delete_size(
     db: AsyncSession = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user)
 ):
-    """Delete master size."""
+    """Xóa kích thước gốc (chỉ Admin)."""
     result = await db.execute(select(Size).where(Size.id == size_id))
     size = result.scalars().first()
     if not size:
@@ -95,12 +96,12 @@ async def delete_size(
 
 
 # ==========================================
-# MASTER TOPPINGS ENDPOINTS
+# CÁC ENDPOINT QUẢN LÝ TOPPING
 # ==========================================
 
 @router_toppings.get("", response_model=List[ToppingResponse])
 async def get_toppings(db: AsyncSession = Depends(get_db)):
-    """Get all master toppings."""
+    """Lấy toàn bộ danh sách topping gốc, sắp xếp theo tên A-Z."""
     result = await db.execute(select(Topping).order_by(Topping.name.asc()))
     return result.scalars().all()
 
@@ -111,7 +112,7 @@ async def create_topping(
     db: AsyncSession = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user)
 ):
-    """Create a new master topping template."""
+    """Tạo topping mới trong từ điển gốc (chỉ Admin). Kiểm tra tên không trùng lặp."""
     result = await db.execute(select(Topping).where(func_lower(Topping.name) == topping_in.name.lower()))
     if result.scalars().first():
         raise HTTPException(status_code=400, detail="Topping with this name already exists in master catalog")
@@ -133,12 +134,13 @@ async def update_topping(
     db: AsyncSession = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user)
 ):
-    """Update master topping."""
+    """Cập nhật topping gốc (chỉ Admin). Kiểm tra tên mới không trùng với topping khác."""
     result = await db.execute(select(Topping).where(Topping.id == topping_id))
     topping = result.scalars().first()
     if not topping:
         raise HTTPException(status_code=404, detail="Topping not found")
 
+    # Kiểm tra tên mới không trùng (nếu thay đổi tên)
     if topping_in.name is not None and topping_in.name != topping.name:
         existing = await db.execute(select(Topping).where(func_lower(Topping.name) == topping_in.name.lower()))
         if existing.scalars().first():
@@ -159,7 +161,7 @@ async def delete_topping(
     db: AsyncSession = Depends(get_db),
     current_admin: User = Depends(get_current_admin_user)
 ):
-    """Delete master topping."""
+    """Xóa topping gốc (chỉ Admin)."""
     result = await db.execute(select(Topping).where(Topping.id == topping_id))
     topping = result.scalars().first()
     if not topping:
@@ -171,5 +173,6 @@ async def delete_topping(
 
 
 def func_lower(col):
+    """Hàm tiện ích bọc func.lower() của SQLAlchemy để so sánh không phân biệt hoa/thường."""
     from sqlalchemy import func
     return func.lower(col)

@@ -12,7 +12,7 @@ router = APIRouter()
 
 @router.get("", response_model=List[CategoryResponse])
 async def get_categories(db: AsyncSession = Depends(get_db)):
-    """Get all categories (Public endpoint)."""
+    """Lấy toàn bộ danh mục sản phẩm, sắp xếp theo ID tăng dần (Public endpoint)."""
     stmt = select(Category).order_by(Category.id.asc())
     result = await db.execute(stmt)
     categories = result.scalars().all()
@@ -20,7 +20,7 @@ async def get_categories(db: AsyncSession = Depends(get_db)):
 
 @router.get("/{category_id}", response_model=CategoryResponse)
 async def get_category(category_id: int, db: AsyncSession = Depends(get_db)):
-    """Get single category by ID (Public endpoint)."""
+    """Lấy thông tin chi tiết một danh mục theo ID (Public endpoint)."""
     stmt = select(Category).where(Category.id == category_id)
     result = await db.execute(stmt)
     category = result.scalar_one_or_none()
@@ -34,7 +34,8 @@ async def create_category(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Create a new category (Admin only)."""
+    """Tạo danh mục mới (chỉ Admin). Kiểm tra tên không trùng lặp."""
+    # Kiểm tra tên danh mục đã tồn tại chưa
     stmt = select(Category).where(Category.name == payload.name)
     result = await db.execute(stmt)
     existing = result.scalar_one_or_none()
@@ -54,15 +55,15 @@ async def update_category(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Update an existing category (Admin only)."""
+    """Cập nhật thông tin danh mục (chỉ Admin). Kiểm tra tên mới không trùng với danh mục khác."""
     stmt = select(Category).where(Category.id == category_id)
     result = await db.execute(stmt)
     category = result.scalar_one_or_none()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
+    # Kiểm tra tên mới có trùng với danh mục khác không (nếu tên thay đổi)
     if payload.name is not None and payload.name != category.name:
-        # Check if new name exists
         stmt_check = select(Category).where(Category.name == payload.name)
         res_check = await db.execute(stmt_check)
         if res_check.scalar_one_or_none():
@@ -82,7 +83,7 @@ async def delete_category(
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(get_current_admin_user)
 ):
-    """Delete a category (Admin only)."""
+    """Xóa danh mục (chỉ Admin). Lưu ý: sẽ thất bại nếu còn sản phẩm thuộc danh mục này."""
     stmt = select(Category).where(Category.id == category_id)
     result = await db.execute(stmt)
     category = result.scalar_one_or_none()

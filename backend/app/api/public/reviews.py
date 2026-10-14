@@ -17,16 +17,20 @@ async def get_product_reviews(
     page_size: int = 10,
     db: AsyncSession = Depends(get_db)
 ):
+    """
+    Lấy danh sách đánh giá của một sản phẩm (Public endpoint - dành cho khách hàng xem).
+    Chỉ trả về review đã được duyệt hiển thị (is_visible = True), sắp xếp mới nhất trước.
+    """
     offset = (page - 1) * page_size
 
-    # Count total
+    # Đếm tổng số review đang hiển thị của sản phẩm
     count_query = select(func.count()).select_from(Review).where(
         Review.product_id == product_id,
         Review.is_visible == True
     )
     total_count = await db.scalar(count_query)
 
-    # Get items
+    # Lấy danh sách review kèm thông tin người đánh giá (eager load user)
     query = select(Review).options(selectinload(Review.user)).where(
         Review.product_id == product_id,
         Review.is_visible == True

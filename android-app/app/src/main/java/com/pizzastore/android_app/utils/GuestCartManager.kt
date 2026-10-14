@@ -11,10 +11,12 @@ import com.pizzastore.android_app.network.CartSummaryResponse
 import com.pizzastore.android_app.network.Product
 
 class GuestCartManager(context: Context) {
+    // Khởi tạo SharedPreferences (Lưu trữ cục bộ dưới dạng Key-Value) để lưu giỏ hàng khi người dùng chưa đăng nhập
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_GUEST_CART, Context.MODE_PRIVATE)
     private val gson = Gson()
 
     fun getGuestCartItems(): List<CartItemResponse> {
+        // Lấy dữ liệu giỏ hàng dưới dạng chuỗi JSON từ bộ nhớ máy
         val json = prefs.getString(KEY_CART_ITEMS, null)
         if (json.isNullOrEmpty()) {
             return emptyList()
@@ -42,11 +44,11 @@ class GuestCartManager(context: Context) {
     fun addItem(request: CartItemCreateRequest, product: Product?): CartItemResponse {
         val items = getGuestCartItems().toMutableList()
 
-        // Normalize string comparison
+        // Chuẩn hóa chuỗi trước khi so sánh (Cắt khoảng trắng dư thừa, chuyển thành chữ thường)
         val targetSize = request.size_name?.trim()?.takeIf { it.isNotEmpty() }
         val targetNote = request.note?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
 
-        // Find existing item to merge
+        // Tìm kiếm xem món ăn này đã tồn tại trong giỏ chưa (Thuật toán đối chiếu Local y hệt trên Backend)
         val existingIndex = items.indexOfFirst { it ->
             val itSize = it.size_name?.trim()?.takeIf { it.isNotEmpty() }
             val itNote = it.note?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
@@ -56,7 +58,7 @@ class GuestCartManager(context: Context) {
             val isSameSize = itSize == targetSize
             val isSameNote = itNote == targetNote
             
-            // Toppings matching
+            // Mảng Topping phải được sắp xếp theo bảng chữ cái để so sánh chính xác nhất
             val itToppingsNames = it.toppings?.map { top -> top.topping_name.trim().lowercase() }?.sorted() ?: emptyList()
             val reqToppingsNames = request.toppings?.map { top -> top.topping_name.trim().lowercase() }?.sorted() ?: emptyList()
             val isSameToppings = itToppingsNames == reqToppingsNames
@@ -65,6 +67,7 @@ class GuestCartManager(context: Context) {
         }
 
         if (existingIndex > -1) {
+            // Nếu trùng khớp 100% -> Gộp số lượng và tính lại tiền
             val existing = items[existingIndex]
             val newQuantity = existing.quantity + request.quantity
             val newTotalPrice = existing.unit_price * newQuantity
@@ -76,7 +79,7 @@ class GuestCartManager(context: Context) {
             saveGuestCartItems(items)
             return updated
         } else {
-            // Create new
+            // Nếu không trùng -> Tạo bản ghi JSON mới trong Local DB
             val newItemId = (items.maxOfOrNull { it.id } ?: 0) + 1
             val totalPrice = request.unit_price * request.quantity
             val newItem = CartItemResponse(
@@ -134,7 +137,7 @@ class GuestCartManager(context: Context) {
             
             items[index] = updated
             
-            // Check if we need to merge with another item after update
+            // Kiểm tra xem có cần gộp với mục khác sau khi cập nhật hay không
             val matchIdx = items.indexOfFirst { it ->
                 if (it.id == id) return@indexOfFirst false
                 

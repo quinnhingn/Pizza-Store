@@ -18,7 +18,7 @@ async def get_my_notifications(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all notifications for the logged-in customer, ordered by newest first.
+    Lấy toàn bộ thông báo của người dùng đang đăng nhập, sắp xếp theo mới nhất trước.
     """
     stmt = select(UserNotification).where(
         UserNotification.user_id == current_user.id
@@ -34,7 +34,7 @@ async def mark_notification_read(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Mark a single notification as read.
+    Đánh dấu một thông báo cụ thể là đã đọc.
     """
     notif = await db.get(UserNotification, id)
     if not notif or notif.user_id != current_user.id:
@@ -50,7 +50,7 @@ async def mark_all_notifications_read(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Mark all unread notifications as read for current user.
+    Đánh dấu tất cả thông báo chưa đọc của người dùng hiện tại là đã đọc.
     """
     stmt = update(UserNotification).where(
         UserNotification.user_id == current_user.id,
@@ -67,17 +67,19 @@ async def clear_all_notifications(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Clear all read notifications for current user.
-    If type == 'voucher', deletes only voucher_gift notifications.
-    Otherwise, deletes all other notifications.
+    Xóa tất cả thông báo đã đọc của người dùng hiện tại.
+    Nếu type == 'voucher': chỉ xóa thông báo voucher_gift.
+    Ngược lại: xóa tất cả thông báo khác (không phải voucher_gift).
     """
     from sqlalchemy import delete
     
+    # Điều kiện chung: thuộc user hiện tại và đã được đọc
     conditions = [
         UserNotification.user_id == current_user.id,
         UserNotification.is_read == True
     ]
     
+    # Phân loại loại thông báo cần xóa
     if type == "voucher":
         conditions.append(UserNotification.type == "voucher_gift")
     else:
